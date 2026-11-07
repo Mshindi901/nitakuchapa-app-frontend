@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AppHeader, Arrow, Avatar, PreviewNotice } from "../components/Brand";
 import { api, getErrorMessage } from "../lib/api";
+import { getAuthToken } from "../lib/authStorage";
 
 const STORAGE_KEY = "nitakuchapa_participant_ids";
 
@@ -19,7 +20,7 @@ export default function ParticipantDashboard() {
   }, [ids]);
 
   useEffect(() => {
-    const token = localStorage.getItem("nitakuchapa_token");
+    const token = getAuthToken();
     if (!token) return;
     api.get("/api/competitions/user").then((response) => {
       const entries = Array.isArray(response.data?.data) ? response.data.data : [];

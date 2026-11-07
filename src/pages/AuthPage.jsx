@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, getErrorMessage } from "../lib/api";
+import { setAuthSession } from "../lib/authStorage";
 import { Arrow, Brand } from "../components/Brand";
 
 export default function AuthPage({ mode }) {
@@ -34,8 +35,7 @@ export default function AuthPage({ mode }) {
           setError("Sign in succeeded, but the server did not return an authentication token.");
           return;
         }
-        localStorage.setItem("nitakuchapa_token", response.data.token);
-        localStorage.setItem("nitakuchapa_user", JSON.stringify(response.data.data));
+        setAuthSession(response.data.token, response.data.data);
         navigate(inviteId
           ? `/invite/${encodeURIComponent(inviteId)}`
           : response.data.data?.role === "admin" ? "/admin" : "/dashboard");

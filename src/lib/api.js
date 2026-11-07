@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getAuthToken } from "./authStorage";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://nitakuchapa-app-backend.onrender.com";
@@ -10,7 +11,7 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("nitakuchapa_token");
+  const token = getAuthToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

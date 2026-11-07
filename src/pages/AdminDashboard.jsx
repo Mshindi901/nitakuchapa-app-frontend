@@ -3,20 +3,21 @@ import { Link } from "react-router-dom";
 import { AppHeader, Arrow, Avatar, PreviewNotice } from "../components/Brand";
 import { demoCompetitions, demoUsers } from "../data/demo";
 import { api, getErrorMessage, getResponseData } from "../lib/api";
+import { getAuthToken } from "../lib/authStorage";
 
 export default function AdminDashboard() {
   const [preview, setPreview] = useState(localStorage.getItem("nitakuchapa_admin_preview") === "true");
   const [users, setUsers] = useState(preview ? demoUsers : []);
   const [competitions, setCompetitions] = useState(preview ? demoCompetitions : []);
   const [tab, setTab] = useState("Overview");
-  const [error, setError] = useState(() => localStorage.getItem("nitakuchapa_token")
+  const [error, setError] = useState(() => getAuthToken()
     ? ""
     : "Sign in with an admin account to see live application data. Explore the sample admin dashboard below.");
-  const [loading, setLoading] = useState(() => !preview && Boolean(localStorage.getItem("nitakuchapa_token")));
+  const [loading, setLoading] = useState(() => !preview && Boolean(getAuthToken()));
 
   useEffect(() => {
     if (preview) return;
-    const token = localStorage.getItem("nitakuchapa_token");
+    const token = getAuthToken();
     if (!token) return;
     let active = true;
     Promise.allSettled([api.get("/api/users"), api.get("/api/competitions")]).then(([usersResult, competitionsResult]) => {

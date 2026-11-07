@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { AppHeader, Arrow, Avatar, PreviewNotice } from "../components/Brand";
 import { demoCompetitions, demoMatches, demoParticipants, demoTable } from "../data/demo";
 import { api, getErrorMessage, getResponseData } from "../lib/api";
+import { clearAuthSession, getAuthToken, getAuthUser } from "../lib/authStorage";
 
 const blankCompetition = { name: "", type: "league", participant: 8, interval_number: 1, interval_unit: "days", start_date: "", end_date: "", no_of_days: "", player_name: "", team_name: "" };
 const tabs = ["Overview", "Competitions", "My fixtures"];
@@ -14,19 +15,26 @@ function formatDate(value) {
 
 function getStoredUser(preview) {
   if (preview) return { id: "demo-user", username: "Demo Player", email: "" };
-  try {
-    return JSON.parse(localStorage.getItem("nitakuchapa_user") || "null") || { username: "Player", email: "" };
-  } catch {
-    return { username: "Player", email: "" };
-  }
+  return getAuthUser() || { username: "Player", email: "" };
 }
 
-function CompetitionCard({ competition, onSelect, mine }) {
-  return <button className="competition-card" onClick={() => onSelect(competition)}>
-    <div className={`competition-icon ${competition.type === "tournament" ? "icon-tournament" : ""}`}>{competition.type === "tournament" ? "✳" : "▤"}</div>
-    <div className="competition-copy"><span className="competition-type">{competition.type || "league"} · {mine ? "OWNER" : "PLAYER"}</span><strong>{competition.name}</strong><span>{competition.participants || competition.participant || "—"} players · Starts {formatDate(competition.start_date)}</span></div>
-    <span className="status-pill">{competition.status || "active"}</span><span className="card-arrow">↗</span>
-  </button>;
+function CompetitionIcon({ type }) {
+  return <span className={`competition-icon ${type === "tournament" ? "icon-tournament" : ""}`} aria-hidden="true">
+    {type === "tournament"
+      ? <svg viewBox="0 0 24 24" fill="none"><path d="M7 4h10v4a5 5 0 0 1-10 0V4Zm5 9v5m-4 2h8m-4-7v5M7 6H4v2a4 4 0 0 0 4 4m9-6h3v2a4 4 0 0 1-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      : <svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5h16v13H4zM4 10h16M9 10v8.5M15 10v8.5M7 7.8h.01M10 7.8h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+  </span>;
+}
+
+function CompetitionCard({ competition, onSelect, onDelete, deleting, mine }) {
+  return <article className="competition-card">
+    <button className="competition-select" onClick={() => onSelect(competition)}>
+      <CompetitionIcon type={competition.type} />
+      <span className="competition-copy"><span className="competition-type">{competition.type || "league"} · {mine ? "OWNER" : "PLAYER"}</span><strong>{competition.name}</strong><span>{competition.participants || competition.participant || "—"} players · Starts {formatDate(competition.start_date)}</span></span>
+      <span className="status-pill">{competition.status || "active"}</span><span className="card-arrow">↗</span>
+    </button>
+    {mine && <button className="competition-delete" type="button" onClick={() => onDelete(competition)} disabled={deleting} aria-label={`Delete ${competition.name}`} title="Delete competition"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>}
+  </article>;
 }
 
 function EmptyState({ title, text, action }) {
@@ -60,7 +68,7 @@ function makePreviewFixtures(players, competition) {
 
 export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") === "fixtures" ? "My fixtures" : searchParams.get("tab") === "competitions" ? "Competitions" : "Overview");
+  const activeTab = searchParams.get("tab") === "fixtures" ? "My fixtures" : searchParams.get("tab") === "competitions" ? "Competitions" : "Overview";
   const [preview] = useState(localStorage.getItem("nitakuchapa_preview") === "true");
   const [competitions, setCompetitions] = useState(preview ? demoCompetitions : []);
   const [participations, setParticipations] = useState(preview ? [demoCompetitions[1]] : []);
@@ -70,17 +78,19 @@ export default function Dashboard() {
   const [selected, setSelected] = useState(preview ? demoCompetitions[0] : null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(blankCompetition);
-  const [notice, setNotice] = useState(() => localStorage.getItem("nitakuchapa_token")
+  const [notice, setNotice] = useState(() => getAuthToken()
     ? ""
     : "You’re viewing the dashboard shell. Sign in with an API-issued token to load your live competitions, or explore sample data from the sign-in page.");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(!preview && Boolean(localStorage.getItem("nitakuchapa_token")));
+  const [loading, setLoading] = useState(!preview && Boolean(getAuthToken()));
   const [generatingFixtures, setGeneratingFixtures] = useState(false);
+  const [savingMatchId, setSavingMatchId] = useState(null);
+  const [deletingCompetitionId, setDeletingCompetitionId] = useState(null);
   const [user] = useState(() => getStoredUser(preview));
 
   useEffect(() => {
     if (preview) return;
-    const token = localStorage.getItem("nitakuchapa_token");
+    const token = getAuthToken();
     if (!token) return;
     let active = true;
     async function load() {
@@ -129,13 +139,11 @@ export default function Dashboard() {
   const rankedTable = useMemo(() => [...table].sort((a, b) => (b.total_points || 0) - (a.total_points || 0)), [table]);
 
   function setTab(tab) {
-    setActiveTab(tab);
     setSearchParams(tab === "Overview" ? {} : { tab: tab === "My fixtures" ? "fixtures" : "competitions" });
   }
 
   function logout() {
-    localStorage.removeItem("nitakuchapa_token");
-    localStorage.removeItem("nitakuchapa_user");
+    clearAuthSession();
     localStorage.removeItem("nitakuchapa_preview");
     window.location.href = "/signin";
   }
@@ -172,12 +180,16 @@ export default function Dashboard() {
       return;
     }
     const winner = a === b ? null : a > b ? match.participant_a : match.participant_b;
-    if (preview) {
-      setMatches((current) => current.map((item) => item.id === match.id ? { ...item, participant_a_score: a, participant_b_score: b, status: "completed", winning_id: winner } : item));
-      setNotice("Score updated in this preview. It was not saved to the server.");
-      return;
-    }
+    setSavingMatchId(match.id);
+    setError("");
+    setNotice("");
     try {
+      if (preview) {
+        await new Promise((resolve) => window.setTimeout(resolve, 450));
+        setMatches((current) => current.map((item) => item.id === match.id ? { ...item, participant_a_score: a, participant_b_score: b, status: "completed", winning_id: winner } : item));
+        setNotice("Score updated in this preview. It was not saved to the server.");
+        return;
+      }
       await api.put(`/api/match/scores/${selected.id}/${match.id}`, { participant_a_scores: a, participant_b_scores: b });
       const settledMatch = { ...match, participant_a_score: a, participant_b_score: b, winning_id: winner };
       await api.post("/api/points/id", { match: settledMatch });
@@ -188,6 +200,31 @@ export default function Dashboard() {
       setNotice("Match score and competition table updated.");
     } catch (requestError) {
       setError(`${getErrorMessage(requestError)} The backend points endpoint may require an API correction before standings can be updated.`);
+    } finally {
+      setSavingMatchId(null);
+    }
+  }
+
+  async function deleteCompetition(competition) {
+    if (!window.confirm(`Delete "${competition.name}" and its fixtures and standings? This cannot be undone.`)) return;
+    setDeletingCompetitionId(competition.id);
+    setError("");
+    setNotice("");
+    try {
+      if (!preview) await api.delete(`/api/competition/${competition.id}`);
+      setCompetitions((current) => current.filter((item) => item.id !== competition.id));
+      setParticipations((current) => current.filter((item) => item.id !== competition.id));
+      if (selected?.id === competition.id) {
+        setSelected(null);
+        setParticipants([]);
+        setTable([]);
+        setMatches([]);
+      }
+      setNotice(preview ? "Competition removed from this preview." : "Competition and its records were deleted.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setDeletingCompetitionId(null);
     }
   }
 
@@ -228,29 +265,29 @@ export default function Dashboard() {
     <AppHeader active={activeTab} onLogout={logout} userName={user.username || user.name || "Player"} />
     <div className="dashboard-shell">
       {preview && <PreviewNotice />}
-      <div className="dashboard-greeting"><div><div className="eyebrow"><span className="eyebrow-line" /> YOUR SEASON, YOUR STORY</div><h1>{activeTab === "Overview" ? <>Good game starts<br /><em>right here.</em></> : activeTab === "Competitions" ? <>Your competitions.<br /><em>All in one place.</em></> : <>The fixtures are set.<br /><em>Make them count.</em></>}</h1><p>A proper home for the games that matter. Let’s see where you stand.</p></div><button className="button button-brown create-button" onClick={() => setShowCreate(true)}>＋ <span>Create competition</span></button></div>
+      <div className="dashboard-greeting"><div><div className="eyebrow"><span className="eyebrow-line" /> YOUR SEASON, YOUR STORY</div><h1>{activeTab === "Overview" ? <>Good game, <em>{(user.username || user.name || "Player").split(" ")[0]}.</em><br />Ready for matchday?</> : activeTab === "Competitions" ? <>Your competitions.<br /><em>All in one place.</em></> : <>The fixtures are set.<br /><em>Make them count.</em></>}</h1><p>A proper home for the games that matter. Let’s see where you stand.</p></div><button className="button button-brown create-button" onClick={() => setShowCreate(true)}>＋ <span>Create competition</span></button></div>
       {(notice || error) && <div className={`dashboard-alert ${error ? "alert-error" : ""}`} role={error ? "alert" : "status"}>{error || notice}<button onClick={() => { setError(""); setNotice(""); }} aria-label="Dismiss">×</button></div>}
       <nav className="dashboard-tabs">{tabs.map((tab) => <button key={tab} onClick={() => setTab(tab)} className={activeTab === tab ? "dashboard-tab-active" : ""}>{tab}<span>{tab === "Competitions" ? allCompetitions.length : tab === "My fixtures" ? myFixtures.length : ""}</span></button>)}</nav>
       {loading ? <div className="loading-state"><span className="loading-spinner" /> Loading your competitions...</div> : <>
         <section className="dashboard-content">
           {activeTab === "Overview" && <div className="overview-grid">
             <section className="dashboard-panel competition-panel"><div className="panel-heading"><div><span className="panel-kicker">THE LINE-UP</span><h2>Your competitions</h2></div><button className="panel-action" onClick={() => setTab("Competitions")}>SEE ALL <Arrow /></button></div>
-              <div className="competition-list">{allCompetitions.slice(0, 3).map((competition) => <CompetitionCard key={competition.id} competition={competition} mine={competitions.some((item) => item.id === competition.id)} onSelect={setSelected} />)}
+              <div className="competition-list">{allCompetitions.slice(0, 3).map((competition) => { const mine = competitions.some((item) => item.id === competition.id); return <CompetitionCard key={competition.id} competition={competition} mine={mine} deleting={deletingCompetitionId === competition.id} onSelect={setSelected} onDelete={deleteCompetition} />; })}
               {!allCompetitions.length && <EmptyState title="A clean sheet." text="No competitions just yet. Start one and bring your crew in." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create a competition <Arrow /></button>} />}</div>
             </section>
             <section className="dashboard-panel table-panel"><div className="panel-heading"><div><span className="panel-kicker">WHERE THE POINTS LAND</span><h2>{selected?.name || "Your league table"}</h2></div><span className="mini-live"><i /> LIVE TABLE</span></div>
               {rankedTable.length ? <Standings table={rankedTable.slice(0, 5)} playerMap={playerMap} currentUserId={currentUserId} /> : <EmptyState title="No table yet." text="The standings will show up when your competition has players." />}
-              {selected && <button className="panel-action table-view-action" onClick={() => setActiveTab("Competitions")}>VIEW COMPETITION <Arrow /></button>}
+              {selected && <button className="panel-action table-view-action" onClick={() => setTab("Competitions")}>VIEW COMPETITION <Arrow /></button>}
             </section>
             <section className="dashboard-panel fixtures-panel"><div className="panel-heading"><div><span className="panel-kicker">COMING UP NEXT</span><h2>Next fixtures</h2></div><button className="panel-action" onClick={() => setTab("My fixtures")}>ALL FIXTURES <Arrow /></button></div>
-              <FixtureListWithScores matches={matches.filter((match) => match.status !== "completed").slice(0, 2)} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} />
+              <FixtureListWithScores matches={matches.filter((match) => match.status !== "completed").slice(0, 2)} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} />
             </section>
             <section className="dashboard-panel profile-panel" id="profile-card"><div className="profile-top"><Avatar name={user.username} /><span className="profile-tag">PLAYER PROFILE</span></div><h2>{user.username}</h2><p>{user.email}</p><div className="profile-stats"><div><strong>{competitions.length}</strong><span>CREATED</span></div><div><strong>{participations.length}</strong><span>JOINED</span></div><div><strong>{myFixtures.length}</strong><span>FIXTURES</span></div></div><button className="profile-edit" onClick={() => setNotice("Profile editing is not included in the backend API yet.")}>Manage your profile <Arrow /></button></section>
           </div>}
-          {activeTab === "Competitions" && <div className="competition-view"><div className="competition-view-head"><div><span className="panel-kicker">YOUR LINE-UP</span><h2>Every competition, one place.</h2></div><div className="competition-filters"><span>{competitions.length} OWNED</span><span>{participations.length} JOINED</span></div></div><div className="competition-list">{allCompetitions.map((competition) => <CompetitionCard key={competition.id} competition={competition} mine={competitions.some((item) => item.id === competition.id)} onSelect={setSelected} />)}{!allCompetitions.length && <EmptyState title="Your next rivalry starts here." text="Create a competition or join one with an invite link." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create your first competition <Arrow /></button>} />}</div>
-            {selected && <CompetitionDetail competition={selected} participants={participants} playerMap={playerMap} table={rankedTable} matches={matches} isOwner={isOwner} currentUserId={currentUserId} onScore={updateScore} onGenerateFixtures={generateFixtures} generatingFixtures={generatingFixtures} onInvite={() => navigator.clipboard?.writeText(`${window.location.origin}/invite/${selected.share_code}`).then(() => setNotice("Invite link copied to clipboard.")).catch(() => setError("Could not copy the invite link."))} />}
+          {activeTab === "Competitions" && <div className="competition-view"><div className="competition-view-head"><div><span className="panel-kicker">YOUR LINE-UP</span><h2>Every competition, one place.</h2></div><div className="competition-filters"><span>{competitions.length} OWNED</span><span>{participations.length} JOINED</span></div></div><div className="competition-list">{allCompetitions.map((competition) => { const mine = competitions.some((item) => item.id === competition.id); return <CompetitionCard key={competition.id} competition={competition} mine={mine} deleting={deletingCompetitionId === competition.id} onSelect={setSelected} onDelete={deleteCompetition} />; })}{!allCompetitions.length && <EmptyState title="Your next rivalry starts here." text="Create a competition or join one with an invite link." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create your first competition <Arrow /></button>} />}</div>
+            {selected && <CompetitionDetail competition={selected} participants={participants} playerMap={playerMap} table={rankedTable} matches={matches} isOwner={isOwner} currentUserId={currentUserId} onScore={updateScore} savingMatchId={savingMatchId} onGenerateFixtures={generateFixtures} generatingFixtures={generatingFixtures} onInvite={() => navigator.clipboard?.writeText(`${window.location.origin}/invite/${selected.share_code}`).then(() => setNotice("Invite link copied to clipboard.")).catch(() => setError("Could not copy the invite link."))} />}
           </div>}
-          {activeTab === "My fixtures" && <section className="dashboard-panel fixture-view"><div className="panel-heading"><div><span className="panel-kicker">YOUR NEXT CHALLENGE</span><h2>Fixtures</h2></div><span className="mini-live"><i /> {myFixtures.length} MATCHES</span></div><FixtureListWithScores matches={myFixtures} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} /></section>}
+          {activeTab === "My fixtures" && <section className="dashboard-panel fixture-view"><div className="panel-heading"><div><span className="panel-kicker">YOUR NEXT CHALLENGE</span><h2>Fixtures</h2></div><span className="mini-live"><i /> {myFixtures.length} MATCHES</span></div><FixtureListWithScores matches={myFixtures} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} /></section>}
         </section>
       </>}
     </div>
@@ -258,7 +295,8 @@ export default function Dashboard() {
       <label>COMPETITION NAME<input required maxLength="60" placeholder="Friday Night Kings" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
       <div className="form-pair"><label>FORMAT<select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}><option value="league">League</option><option value="tournament">Tournament</option></select></label><label>NUMBER OF PLAYERS<input type="number" min="2" max="64" required value={form.participant} onChange={(e) => setForm({ ...form, participant: e.target.value })} /></label></div>
       <div className="form-pair"><label>START DATE<input type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></label><label>END DATE<input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></label></div>
-      <div className="form-pair"><label>MATCH CADENCE<input type="number" min="1" required value={form.interval_number} onChange={(e) => setForm({ ...form, interval_number: e.target.value })} /></label><label>INTERVAL<select value={form.interval_unit} onChange={(e) => setForm({ ...form, interval_unit: e.target.value })}><option value="days">Days</option><option value="hours">Hours</option><option value="minutes">Minutes</option></select></label></div>
+      <div className="form-pair"><label>TIME BETWEEN MATCHES<input type="number" min="1" required value={form.interval_number} onChange={(e) => setForm({ ...form, interval_number: e.target.value })} /></label><label>MEASURE IN<select value={form.interval_unit} onChange={(e) => setForm({ ...form, interval_unit: e.target.value })}><option value="days">Days</option><option value="hours">Hours</option><option value="minutes">Minutes</option></select></label></div>
+      <p className="interval-help">Your fixtures will be scheduled one match every {form.interval_number || "—"} {form.interval_unit}.</p>
       <div className="form-pair"><label>YOUR PLAYER NAME<input required value={form.player_name} onChange={(e) => setForm({ ...form, player_name: e.target.value })} placeholder="Your name in the game" /></label><label>YOUR TEAM<input required value={form.team_name} onChange={(e) => setForm({ ...form, team_name: e.target.value })} placeholder="Your PES team" /></label></div>
       {error && <div className="form-message form-error">{error}</div>}<button className="button button-brown auth-submit">Create competition <Arrow /></button>
       <p className="modal-note">The backend also requires a participant count and your player/team details for the initial entry.</p>
@@ -270,7 +308,7 @@ function Standings({ table, playerMap, currentUserId }) {
   return <div className="standings-wrap"><table className="standings-table"><thead><tr><th>POS</th><th>PLAYER / TEAM</th><th>PL</th><th>W</th><th>D</th><th>L</th><th>PTS</th></tr></thead><tbody>{table.map((row, i) => { const player = playerMap.get(row.participant_id); const mine = Boolean(player && currentUserId && player.user_id === currentUserId); return <tr className={mine ? "my-table-row" : ""} key={row.id || row.participant_id || i}><td>{String(i + 1).padStart(2, "0")}</td><td><span className="standings-team">{player?.team_name || "Player"}<small>{player?.player_name || "Competition player"}{mine && <em className="user-table-badge">✦ YOUR TEAM</em>}</small></span></td><td>{row.matches_played ?? 0}</td><td>{row.matches_won ?? 0}</td><td>{row.matches_drawn ?? 0}</td><td>{row.matches_lost ?? 0}</td><td><strong>{row.total_points ?? 0}</strong></td></tr>; })}</tbody></table></div>;
 }
 
-function CompetitionDetail({ competition, participants, playerMap, table, matches, isOwner, currentUserId, onScore, onGenerateFixtures, generatingFixtures, onInvite }) {
+function CompetitionDetail({ competition, participants, playerMap, table, matches, isOwner, currentUserId, onScore, savingMatchId, onGenerateFixtures, generatingFixtures, onInvite }) {
   const participantLimit = Number(competition.participants ?? competition.participant ?? 0);
   const isFull = participantLimit > 0 && participants.length === participantLimit;
   const needsFixtures = isOwner && matches.length === 0;
@@ -278,20 +316,28 @@ function CompetitionDetail({ competition, participants, playerMap, table, matche
     <div className="detail-header"><div><span className="panel-kicker">{competition.type?.toUpperCase() || "COMPETITION"} · {competition.status?.toUpperCase() || "ACTIVE"}</span><h2>{competition.name}</h2><p>{participants.length} of {participantLimit || "—"} players · Starts {formatDate(competition.start_date)}</p></div><div className="detail-actions">{isOwner && <button className="button button-outline invite-button" onClick={onInvite}>Copy invite link <Arrow diagonal /></button>}{needsFixtures && <button className="button button-brown fixture-generate-button" disabled={!isFull || generatingFixtures} onClick={onGenerateFixtures}>{generatingFixtures ? "Generating fixtures..." : isFull ? "⚽ Generate fixtures" : `⚽ Need ${Math.max(0, participantLimit - participants.length)} more players`}</button>}</div></div>
     {needsFixtures && <div className={`fixture-generation-status ${isFull ? "fixture-generation-ready" : ""}`}><span>{isFull ? "FULL SQUAD · READY FOR KICKOFF" : `${participants.length} / ${participantLimit || "—"} PLAYERS JOINED`}</span><p>{isFull ? "Your round-robin schedule will be created for the whole squad." : "Share the invite link. Fixtures unlock when every player has joined."}</p></div>}
     <div className="detail-grid"><div className="dashboard-panel detail-table-panel"><div className="panel-heading"><div><span className="panel-kicker">THE STANDINGS</span><h3>League table</h3></div><span className="standings-count">{table.length} PLAYERS</span></div>{table.length ? <Standings table={table} playerMap={playerMap} currentUserId={currentUserId} /> : <EmptyState title="Waiting for kickoff." text="Your table will take shape after the first results." />}</div>
-      <div className="dashboard-panel detail-fixtures"><div className="panel-heading"><div><span className="panel-kicker">MATCHDAY</span><h3>Fixtures & results</h3></div>{isOwner && <span className="score-hint">Add scores to update table</span>}</div><FixtureListWithScores matches={matches} playerMap={playerMap} onScore={onScore} canScore={Boolean(isOwner)} /></div>
+      <div className="dashboard-panel detail-fixtures"><div className="panel-heading"><div><span className="panel-kicker">MATCHDAY</span><h3>Fixtures & results</h3></div>{isOwner && <span className="score-hint">Add scores to update table</span>}</div><FixtureListWithScores matches={matches} playerMap={playerMap} onScore={onScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} /></div>
       <div className="dashboard-panel participants-panel"><div className="panel-heading"><div><span className="panel-kicker">THE SQUAD</span><h3>Players <span className="player-count">{participants.length}</span></h3></div></div>{participants.length ? <div className="participants-list">{participants.map((player) => <div className="participant-row" key={player.id}><Avatar small name={player.player_name} /><span><b>{player.player_name}</b><small>{player.team_name}</small></span><span className="participant-member">{player.user_id ? "MEMBER" : "GUEST"}</span></div>)}</div> : <EmptyState title="Squad up." text="Share the invite link to bring players in." />}</div>
     </div>
   </section>;
 }
 
-function FixtureListWithScores({ matches, playerMap, onScore, canScore }) {
+function FixtureListWithScores({ matches, playerMap, onScore, canScore, savingMatchId }) {
   if (!matches.length) return <EmptyState title="Fixtures are getting ready." text="Your match schedule will appear here." />;
-  return <div className="fixture-list">{matches.map((match) => <article className="fixture-row" key={match.id}><div className="fixture-date"><strong>{new Date(match.schedule_at).toLocaleDateString("en-KE", { day: "2-digit" })}</strong><span>{new Date(match.schedule_at).toLocaleDateString("en-KE", { month: "short" }).toUpperCase()}</span></div><div className="fixture-teams"><strong>{playerMap.get(match.participant_a)?.team_name || "Team A"} <span>vs</span> {playerMap.get(match.participant_b)?.team_name || "Team B"}</strong><small>{playerMap.get(match.participant_a)?.player_name || "Player"} · {playerMap.get(match.participant_b)?.player_name || "Player"} <span>ROUND {match.round || "—"}</span></small></div>{canScore && match.status !== "completed" ? <ScoreInput match={match} onScore={onScore} /> : <div className={match.status === "completed" ? "fixture-result" : "fixture-pending"}>{match.status === "completed" ? <>{match.participant_a_score} — {match.participant_b_score}<small>FULL TIME</small></> : "UP NEXT"}</div>}</article>)}</div>;
+  return <div className="fixture-list">{matches.map((match) => {
+    const scheduled = new Date(match.schedule_at);
+    const scheduleValid = Boolean(match.schedule_at) && Number.isFinite(scheduled.getTime());
+    const saving = savingMatchId === match.id;
+    return <article className={`fixture-row ${saving ? "fixture-row-saving" : ""}`} key={match.id}>
+      <div className="fixture-date"><strong>{scheduleValid ? scheduled.toLocaleDateString("en-KE", { day: "2-digit" }) : "TBD"}</strong><span>{scheduleValid ? scheduled.toLocaleDateString("en-KE", { month: "short" }).toUpperCase() : "DATE"}</span></div>
+      <div className="fixture-teams"><strong>{playerMap.get(match.participant_a)?.team_name || "Team A"} <span>vs</span> {playerMap.get(match.participant_b)?.team_name || "Team B"}</strong><small>{playerMap.get(match.participant_a)?.player_name || "Player"} · {playerMap.get(match.participant_b)?.player_name || "Player"} <span>ROUND {match.round || "—"}</span></small><time className="fixture-kickoff">{scheduleValid ? scheduled.toLocaleTimeString("en-KE", { hour: "numeric", minute: "2-digit" }) : "Schedule pending"}</time></div>
+      {canScore && match.status !== "completed" ? <ScoreInput match={match} onScore={onScore} saving={saving} busy={savingMatchId !== null} /> : <div className={match.status === "completed" ? "fixture-result" : "fixture-pending"}>{saving ? <><span className="loading-spinner" /> Updating table…</> : match.status === "completed" ? <>{match.participant_a_score} — {match.participant_b_score}<small>FULL TIME</small></> : "UP NEXT"}</div>}
+    </article>;
+  })}</div>;
 }
 
-function ScoreInput({ match, onScore }) {
+function ScoreInput({ match, onScore, saving, busy }) {
   const [a, setA] = useState("");
   const [b, setB] = useState("");
-  const [saving, setSaving] = useState(false);
-  return <form className="fixture-score-form" onSubmit={async (event) => { event.preventDefault(); setSaving(true); await onScore(match, a, b); setSaving(false); }}><input aria-label="First team score" required min="0" type="number" value={a} onChange={(e) => setA(e.target.value)} /><span>:</span><input aria-label="Second team score" required min="0" type="number" value={b} onChange={(e) => setB(e.target.value)} /><button className="score-save" disabled={saving} aria-label="Save score">✓</button></form>;
+  return <form className="fixture-score-form" onSubmit={async (event) => { event.preventDefault(); await onScore(match, a, b); }}><input aria-label="First team score" required min="0" type="number" value={a} onChange={(e) => setA(e.target.value)} disabled={busy} /><span>:</span><input aria-label="Second team score" required min="0" type="number" value={b} onChange={(e) => setB(e.target.value)} disabled={busy} /><button className="score-save" disabled={busy} aria-label={saving ? "Saving score" : "Save score"}>{saving ? <span className="loading-spinner" /> : "✓"}</button></form>;
 }

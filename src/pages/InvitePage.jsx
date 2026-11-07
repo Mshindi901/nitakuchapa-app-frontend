@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Arrow, Brand } from "../components/Brand";
 import { api, getErrorMessage } from "../lib/api";
+import { getAuthToken, getAuthUser } from "../lib/authStorage";
 import { saveGuestCompetition } from "../lib/participantStorage";
 
 export default function InvitePage() {
@@ -9,9 +10,7 @@ export default function InvitePage() {
   const navigate = useNavigate();
   const [competition, setCompetition] = useState(null);
   const [lookingUp, setLookingUp] = useState(true);
-  const [user] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("nitakuchapa_user") || "null"); } catch { return null; }
-  });
+  const [user] = useState(getAuthUser);
   const [form, setForm] = useState(() => ({ player_name: user?.username || user?.name || "", team_name: "" }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -43,7 +42,7 @@ export default function InvitePage() {
       setError("This competition invite could not be verified.");
       return;
     }
-    const token = localStorage.getItem("nitakuchapa_token");
+    const token = getAuthToken();
     try {
       const response = await api.post(`/api/participant/${encodeURIComponent(shareId)}`, form);
       if (!response.data?.success) throw new Error(response.data?.message || "Could not join this competition.");
