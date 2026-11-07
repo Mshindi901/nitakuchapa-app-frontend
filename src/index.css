@@ -362,6 +362,42 @@
   text-underline-offset: 3px;
 }
 
+.logout-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #e7e1d8;
+  border-radius: 3px;
+  background: transparent;
+  color: #7b6a58;
+  font: 600 12px "DM Sans", sans-serif;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+}
+
+.logout-button:hover {
+  border-color: #705038;
+  background: #705038;
+  color: #fff;
+}
+
+.logout-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 680px) {
+  .logout-button {
+    min-height: 32px;
+    padding: 0 9px;
+    font-size: 11px;
+  }
+}
+
 .dashboard-page,
 .invite-page {
   font-size: 15px;

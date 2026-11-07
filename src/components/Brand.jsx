@@ -40,7 +40,7 @@ export function AppHeader({ active = "Overview", onLogout, userName = "Player" }
           <span>{userName.split(" ")[0]}</span>
           <span className="chevron">⌄</span>
         </button>
-        {onLogout && <button className="logout-button" onClick={onLogout} aria-label="Log out">↗</button>}
+        {onLogout && <button className="logout-button" onClick={onLogout} type="button"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3m9-9h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg><span>Log out</span></button>}
       </div>
     </header>
   );
