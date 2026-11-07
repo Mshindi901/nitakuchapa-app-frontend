@@ -1,6 +1,5 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import Landing from "./pages/Landing";
-import ComingSoon from "./pages/ComingSoon";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import ParticipantDashboard from "./pages/ParticipantDashboard";
@@ -11,7 +10,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/coming-soon" element={<ComingSoon />} />
+      <Route path="/coming-soon" element={<Navigate to="/#how-it-works" replace />} />
       <Route path="/signin" element={<AuthPage mode="signin" />} />
       <Route path="/signup" element={<AuthPage mode="signup" />} />
       <Route path="/dashboard" element={<Dashboard />} />

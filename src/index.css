@@ -324,6 +324,44 @@
   }
 }
 
+.guest-saved-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 24px;
+  padding: 8px 11px;
+  border: 1px solid #e4d9c8;
+  background: #f3eee5;
+  color: #86735e;
+  font: 11px var(--mono);
+  letter-spacing: .45px;
+}
+
+.guest-saved-notice::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a17c54;
+  content: "";
+}
+
+.backend-credit {
+  margin-top: 20px;
+  color: #e6d8c7;
+  font-size: 13px;
+}
+
+.backend-credit a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+  color: #fffaf3;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .dashboard-page,
 .invite-page {
   font-size: 15px;

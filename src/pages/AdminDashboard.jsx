@@ -1,22 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AppHeader, Arrow, Avatar, PreviewNotice } from "../components/Brand";
-import { demoCompetitions, demoUsers } from "../data/demo";
+import { AppHeader, Arrow, Avatar } from "../components/Brand";
 import { api, getErrorMessage, getResponseData } from "../lib/api";
 import { getAuthToken } from "../lib/authStorage";
 
 export default function AdminDashboard() {
-  const [preview, setPreview] = useState(localStorage.getItem("nitakuchapa_admin_preview") === "true");
-  const [users, setUsers] = useState(preview ? demoUsers : []);
-  const [competitions, setCompetitions] = useState(preview ? demoCompetitions : []);
+  const [users, setUsers] = useState([]);
+  const [competitions, setCompetitions] = useState([]);
   const [tab, setTab] = useState("Overview");
   const [error, setError] = useState(() => getAuthToken()
     ? ""
-    : "Sign in with an admin account to see live application data. Explore the sample admin dashboard below.");
-  const [loading, setLoading] = useState(() => !preview && Boolean(getAuthToken()));
+    : "Sign in with an admin account to see application data.");
+  const [loading, setLoading] = useState(Boolean(getAuthToken()));
 
   useEffect(() => {
-    if (preview) return;
     const token = getAuthToken();
     if (!token) return;
     let active = true;
@@ -29,19 +26,10 @@ export default function AdminDashboard() {
       setLoading(false);
     });
     return () => { active = false; };
-  }, [preview]);
-
-  function enterDemo() {
-    localStorage.setItem("nitakuchapa_admin_preview", "true");
-    setPreview(true);
-    setUsers(demoUsers);
-    setCompetitions(demoCompetitions);
-    setError("");
-  }
+  }, []);
 
   return <main className="dashboard-page admin-page"><AppHeader active="Overview" userName="Admin" /><div className="dashboard-shell">
-    {preview && <PreviewNotice>ADMIN PREVIEW · sample application data</PreviewNotice>}
-    {error && <div className="dashboard-alert alert-error" role="status">{error}{!preview && <button className="alert-action" onClick={enterDemo}>Preview sample data <Arrow /></button>}</div>}
+    {error && <div className="dashboard-alert alert-error" role="alert">{error}</div>}
     <div className="dashboard-greeting"><div><div className="eyebrow"><span className="eyebrow-line" /> THE WHOLE PICTURE</div><h1>Good morning,<br /><em>admin.</em></h1><p>A little overview of the games happening across Nitakuchapa.</p></div><span className="admin-badge">✳ APPLICATION ADMIN</span></div>
     <nav className="dashboard-tabs">{["Overview", "Users", "Competitions"].map((item) => <button key={item} onClick={() => setTab(item)} className={tab === item ? "dashboard-tab-active" : ""}>{item}<span>{item === "Users" ? users.length : item === "Competitions" ? competitions.length : ""}</span></button>)}</nav>
     {loading ? <div className="loading-state"><span className="loading-spinner" /> Loading application data...</div> : <>

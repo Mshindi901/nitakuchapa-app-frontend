@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { AppHeader, Arrow, Avatar, PreviewNotice } from "../components/Brand";
-import { demoCompetitions, demoMatches, demoParticipants, demoTable } from "../data/demo";
+import { AppHeader, Arrow, Avatar } from "../components/Brand";
 import { api, getErrorMessage, getResponseData } from "../lib/api";
 import { clearAuthSession, getAuthToken, getAuthUser } from "../lib/authStorage";
 
@@ -34,11 +33,6 @@ function getCompetitionForm(competition) {
   };
 }
 
-function getStoredUser(preview) {
-  if (preview) return { id: "demo-user", username: "Demo Player", email: "" };
-  return getAuthUser() || { username: "Player", email: "" };
-}
-
 function CompetitionIcon({ type }) {
   return <span className={`competition-icon ${type === "tournament" ? "icon-tournament" : ""}`} aria-hidden="true">
     {type === "tournament"
@@ -65,57 +59,28 @@ function EmptyState({ title, text, action }) {
   return <div className="empty-state"><span>✳</span><h3>{title}</h3><p>{text}</p>{action}</div>;
 }
 
-function makePreviewFixtures(players, competition) {
-  const rotation = [...players];
-  if (rotation.length % 2 !== 0) rotation.push(null);
-  const roundCount = rotation.length - 1;
-  const start = new Date(competition.start_date).getTime();
-  return Array.from({ length: roundCount }, (_, round) => {
-    const fixtures = [];
-    for (let index = 0; index < rotation.length / 2; index += 1) {
-      const a = rotation[index];
-      const b = rotation[rotation.length - 1 - index];
-      if (a && b) fixtures.push({
-        id: `preview-${competition.id}-${round}-${index}`,
-        league_id: competition.id,
-        participant_a: a.id,
-        participant_b: b.id,
-        round: round + 1,
-        schedule_at: new Date(start + round * (Number(competition.match_interval) || 86400000)).toISOString(),
-        status: "pending",
-      });
-    }
-    rotation.splice(1, 0, rotation.pop());
-    return fixtures;
-  }).flat();
-}
-
 export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") === "fixtures" ? "My fixtures" : searchParams.get("tab") === "competitions" ? "Competitions" : "Overview";
-  const [preview] = useState(localStorage.getItem("nitakuchapa_preview") === "true");
-  const [competitions, setCompetitions] = useState(preview ? demoCompetitions : []);
-  const [participations, setParticipations] = useState(preview ? [demoCompetitions[1]] : []);
-  const [participants, setParticipants] = useState(preview ? demoParticipants : []);
-  const [table, setTable] = useState(preview ? demoTable : []);
-  const [matches, setMatches] = useState(preview ? demoMatches : []);
-  const [selected, setSelected] = useState(preview ? demoCompetitions[0] : null);
+  const [competitions, setCompetitions] = useState([]);
+  const [participations, setParticipations] = useState([]);
+  const [participants, setParticipants] = useState([]);
+  const [table, setTable] = useState([]);
+  const [matches, setMatches] = useState([]);
+  const [selected, setSelected] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [editingCompetition, setEditingCompetition] = useState(null);
   const [form, setForm] = useState(blankCompetition);
-  const [notice, setNotice] = useState(() => getAuthToken()
-    ? ""
-    : "You’re viewing the dashboard shell. Sign in with an API-issued token to load your live competitions, or explore sample data from the sign-in page.");
+  const [notice, setNotice] = useState(() => getAuthToken() ? "" : "Sign in to manage your competitions and fixtures.");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(!preview && Boolean(getAuthToken()));
+  const [loading, setLoading] = useState(Boolean(getAuthToken()));
   const [generatingFixtures, setGeneratingFixtures] = useState(false);
   const [savingMatchId, setSavingMatchId] = useState(null);
   const [savingCompetition, setSavingCompetition] = useState(false);
   const [deletingCompetitionId, setDeletingCompetitionId] = useState(null);
-  const [user] = useState(() => getStoredUser(preview));
+  const [user] = useState(() => getAuthUser() || { username: "Player", email: "" });
 
   useEffect(() => {
-    if (preview) return;
     const token = getAuthToken();
     if (!token) return;
     let active = true;
@@ -140,10 +105,10 @@ export default function Dashboard() {
     }
     load();
     return () => { active = false; };
-  }, [preview]);
+  }, []);
 
   useEffect(() => {
-    if (!selected || preview) return;
+    if (!selected) return;
     let active = true;
     Promise.allSettled([
       api.get(`/api/competition/participants/${selected.id}`),
@@ -156,11 +121,11 @@ export default function Dashboard() {
       if (matchesResult.status === "fulfilled") setMatches(getResponseData(matchesResult.value));
     });
     return () => { active = false; };
-  }, [selected, preview]);
+  }, [selected]);
 
   const allCompetitions = useMemo(() => [...competitions, ...participations.filter((item) => !competitions.some((own) => own.id === item.id))], [competitions, participations]);
   const isOwner = selected && competitions.some((item) => item.id === selected.id);
-  const currentUserId = preview ? "demo-user" : user.id;
+  const currentUserId = user.id;
   const playerMap = useMemo(() => new Map(participants.map((player) => [player.id, player])), [participants]);
   const rankedTable = useMemo(() => [...table].sort((a, b) => (b.total_points || 0) - (a.total_points || 0)), [table]);
 
@@ -170,7 +135,6 @@ export default function Dashboard() {
 
   function logout() {
     clearAuthSession();
-    localStorage.removeItem("nitakuchapa_preview");
     window.location.href = "/signin";
   }
 
@@ -204,23 +168,16 @@ export default function Dashboard() {
         interval_unit: form.interval_unit,
       };
       try {
-        const response = preview
-          ? null
-          : await api.put(`/api/competition/${editingCompetition.id}`, payload);
-        if (response && !response.data?.success) {
+        const response = await api.put(`/api/competition/${editingCompetition.id}`, payload);
+        if (!response.data?.success) {
           throw new Error(response.data?.message || "Competition was not updated.");
         }
-        const updated = response?.data?.data || {
-          ...editingCompetition,
-          ...payload,
-          participants: payload.participant,
-          match_interval: payload.interval_number * ({ minutes: 60000, hours: 3600000, days: 86400000 }[payload.interval_unit]),
-        };
+        const updated = response.data.data;
         setCompetitions((current) => current.map((item) => item.id === editingCompetition.id ? updated : item));
         setParticipations((current) => current.map((item) => item.id === editingCompetition.id ? updated : item));
         if (selected?.id === editingCompetition.id) setSelected(updated);
-        setNotice(preview ? "Competition updated in this preview." : "Competition updated successfully.");
-        toast.success(preview ? "Competition updated in preview." : "Competition updated.");
+        setNotice("Competition updated successfully.");
+        toast.success("Competition updated.");
         closeCompetitionForm();
       } catch (requestError) {
         const message = getErrorMessage(requestError);
@@ -229,16 +186,6 @@ export default function Dashboard() {
       } finally {
         setSavingCompetition(false);
       }
-      return;
-    }
-    if (preview) {
-      const demo = { ...form, id: `demo-${Date.now()}`, owner: "demo-user", status: "active", share_code: "new-competition", participants: Number(form.participant) };
-      setCompetitions((current) => [demo, ...current]);
-      setSelected(demo);
-      closeCompetitionForm();
-      setSavingCompetition(false);
-      setNotice("Preview competition created locally. Nothing was sent to the server.");
-      toast.success("Competition created in preview.");
       return;
     }
     try {
@@ -269,13 +216,6 @@ export default function Dashboard() {
     setError("");
     setNotice("");
     try {
-      if (preview) {
-        await new Promise((resolve) => window.setTimeout(resolve, 450));
-        setMatches((current) => current.map((item) => item.id === match.id ? { ...item, participant_a_score: a, participant_b_score: b, status: "completed", winning_id: winner } : item));
-        setNotice("Score updated in this preview. It was not saved to the server.");
-        toast.success("Match result updated in preview.");
-        return;
-      }
       await api.put(`/api/match/scores/${selected.id}/${match.id}`, { participant_a_scores: a, participant_b_scores: b });
       const settledMatch = { ...match, participant_a_score: a, participant_b_score: b, winning_id: winner };
       await api.post("/api/points/id", { match: settledMatch });
@@ -300,10 +240,8 @@ export default function Dashboard() {
     setError("");
     setNotice("");
     try {
-      if (!preview) {
-        const response = await api.delete(`/api/competition/${competition.id}`);
-        if (!response.data?.success) throw new Error(response.data?.message || "Competition was not deleted.");
-      }
+      const response = await api.delete(`/api/competition/${competition.id}`);
+      if (!response.data?.success) throw new Error(response.data?.message || "Competition was not deleted.");
       setCompetitions((current) => current.filter((item) => item.id !== competition.id));
       setParticipations((current) => current.filter((item) => item.id !== competition.id));
       if (selected?.id === competition.id) {
@@ -312,8 +250,8 @@ export default function Dashboard() {
         setTable([]);
         setMatches([]);
       }
-      setNotice(preview ? "Competition removed from this preview." : "Competition and its records were deleted.");
-      toast.success(preview ? "Competition removed from preview." : "Competition deleted.");
+      setNotice("Competition and its records were deleted.");
+      toast.success("Competition deleted.");
     } catch (requestError) {
       const message = getErrorMessage(requestError);
       setError(message);
@@ -329,13 +267,6 @@ export default function Dashboard() {
     setNotice("");
     setGeneratingFixtures(true);
     try {
-      if (preview) {
-        const fixtureList = makePreviewFixtures(participants, selected);
-        setMatches(fixtureList);
-        setNotice("Round-robin fixtures generated in preview mode.");
-        toast.success("Fixtures generated in preview.");
-        return;
-      }
       const response = await api.post(`/api/matches/add/${selected.id}`);
       if (!response.data?.success) throw new Error(response.data?.message || "Fixtures could not be generated.");
       const [matchResponse, tableResponse] = await Promise.all([
@@ -363,7 +294,6 @@ export default function Dashboard() {
   return <main className="dashboard-page">
     <AppHeader active={activeTab} onLogout={logout} userName={user.username || user.name || "Player"} />
     <div className="dashboard-shell">
-      {preview && <PreviewNotice />}
       <div className="dashboard-greeting"><div><div className="eyebrow"><span className="eyebrow-line" /> YOUR SEASON, YOUR STORY</div><h1>{activeTab === "Overview" ? <>Good game, <em>{(user.username || user.name || "Player").split(" ")[0]}.</em><br />Ready for matchday?</> : activeTab === "Competitions" ? <>Your competitions.<br /><em>All in one place.</em></> : <>The fixtures are set.<br /><em>Make them count.</em></>}</h1><p>A proper home for the games that matter. Let’s see where you stand.</p></div><button className="button button-brown create-button" onClick={() => setShowCreate(true)}>＋ <span>Create competition</span></button></div>
       {(notice || error) && <div className={`dashboard-alert ${error ? "alert-error" : ""}`} role={error ? "alert" : "status"}>{error || notice}<button onClick={() => { setError(""); setNotice(""); }} aria-label="Dismiss">×</button></div>}
       <nav className="dashboard-tabs">{tabs.map((tab) => <button key={tab} onClick={() => setTab(tab)} className={activeTab === tab ? "dashboard-tab-active" : ""}>{tab}<span>{tab === "Competitions" ? allCompetitions.length : tab === "My fixtures" ? myFixtures.length : ""}</span></button>)}</nav>

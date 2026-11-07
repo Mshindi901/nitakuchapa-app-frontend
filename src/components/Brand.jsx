@@ -18,10 +18,6 @@ export function Avatar({ name = "Player", small = false }) {
   return <span className={`avatar ${small ? "avatar-small" : ""}`}>{initials}</span>;
 }
 
-export function PreviewNotice({ children = "Preview mode · using sample competition data" }) {
-  return <div className="preview-notice"><span className="preview-dot" />{children}</div>;
-}
-
 export function AppHeader({ active = "Overview", onLogout, userName = "Player" }) {
   const items = [
     ["Overview", "/dashboard", "⌂"],

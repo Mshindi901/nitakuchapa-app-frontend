@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AppHeader, Arrow, Avatar, PreviewNotice } from "../components/Brand";
+import { AppHeader, Arrow, Avatar } from "../components/Brand";
 import { api, getErrorMessage } from "../lib/api";
 import { getAuthToken } from "../lib/authStorage";
 
@@ -37,7 +37,7 @@ export default function ParticipantDashboard() {
 
   return <main className="dashboard-page participant-page">
     <AppHeader active="Competitions" userName="Guest player" />
-    <div className="dashboard-shell"><PreviewNotice>GUEST PLAYER · competitions saved on this device</PreviewNotice>
+    <div className="dashboard-shell"><div className="guest-saved-notice">GUEST PLAYER · competitions saved on this device</div>
       <div className="dashboard-greeting"><div><div className="eyebrow"><span className="eyebrow-line" /> YOUR MATCHDAY PASS</div><h1>Your competitions.<br /><em>Just the games.</em></h1><p>All the competitions you’ve joined, right here.</p></div><Link className="button button-outline" to="/signin">Create an account <Arrow /></Link></div>
       {error && <div className="dashboard-alert alert-error" role="alert">{error}</div>}
       <section className="guest-benefit"><Avatar name="Guest Player" /><div><b>Want fixtures, tables & score updates?</b><p>Create a free player account to sync all your competitions across devices.</p></div><Link to="/signup" className="guest-benefit-link">Join the squad <Arrow /></Link></section>
