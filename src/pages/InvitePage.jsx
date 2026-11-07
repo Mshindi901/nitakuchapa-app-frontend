@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import { Arrow, Brand } from "../components/Brand";
 import { api, getErrorMessage } from "../lib/api";
 import { getAuthToken, getAuthUser } from "../lib/authStorage";
@@ -53,8 +54,11 @@ export default function InvitePage() {
       setNotice(token
         ? "You’re in. Welcome to the competition."
         : "You’re in. Your guest entry is saved on this device; create an account to sync it.");
+      toast.success("You’re in. Welcome to the competition.");
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      const message = getErrorMessage(requestError);
+      setError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   }
 

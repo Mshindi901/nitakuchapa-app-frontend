@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getAuthToken } from "./authStorage";
+import { clearAuthSession, getAuthToken } from "./authStorage";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://nitakuchapa-app-backend.onrender.com";
@@ -15,6 +15,26 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message = error.response?.data?.message || "";
+    const tokenExpired = error.response?.status === 401 &&
+      /(?:expired|invalid).*token|token.*expired/i.test(message);
+    const isAuthRequest = /\/api\/auth\/(?:signin|signup)(?:\/|$)/i.test(error.config?.url || "");
+
+    if (tokenExpired && getAuthToken() && !isAuthRequest) {
+      clearAuthSession();
+      sessionStorage.setItem("nitakuchapa_session_expired", "true");
+      if (window.location.pathname !== "/signin") {
+        window.location.replace("/signin");
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export function getErrorMessage(error) {
   return (

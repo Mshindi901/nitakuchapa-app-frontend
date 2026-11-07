@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import { api, getErrorMessage } from "../lib/api";
 import { setAuthSession } from "../lib/authStorage";
 import { Arrow, Brand } from "../components/Brand";
@@ -15,6 +16,12 @@ export default function AuthPage({ mode }) {
   const [error, setError] = useState("");
   const [preview, setPreview] = useState(false);
 
+  useEffect(() => {
+    if (sessionStorage.getItem("nitakuchapa_session_expired") !== "true") return;
+    sessionStorage.removeItem("nitakuchapa_session_expired");
+    toast.error("Your session expired. Please sign in again.");
+  }, []);
+
   async function submit(event) {
     event.preventDefault();
     setError("");
@@ -27,6 +34,7 @@ export default function AuthPage({ mode }) {
       if (!response.data?.success) throw new Error(response.data?.message || "The server could not complete this request.");
       if (isSignup) {
         setNotice("Account created. You can now sign in.");
+        toast.success("Account created. You can now sign in.");
         if (inviteId) {
           navigate(`/signin?invite=${encodeURIComponent(inviteId)}`);
         }
@@ -41,7 +49,9 @@ export default function AuthPage({ mode }) {
           : response.data.data?.role === "admin" ? "/admin" : "/dashboard");
       }
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      const message = getErrorMessage(requestError);
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import { AppHeader, Arrow, Avatar, PreviewNotice } from "../components/Brand";
 import { demoCompetitions, demoMatches, demoParticipants, demoTable } from "../data/demo";
 import { api, getErrorMessage, getResponseData } from "../lib/api";
@@ -219,9 +220,12 @@ export default function Dashboard() {
         setParticipations((current) => current.map((item) => item.id === editingCompetition.id ? updated : item));
         if (selected?.id === editingCompetition.id) setSelected(updated);
         setNotice(preview ? "Competition updated in this preview." : "Competition updated successfully.");
+        toast.success(preview ? "Competition updated in preview." : "Competition updated.");
         closeCompetitionForm();
       } catch (requestError) {
-        setError(getErrorMessage(requestError));
+        const message = getErrorMessage(requestError);
+        setError(message);
+        toast.error(message);
       } finally {
         setSavingCompetition(false);
       }
@@ -234,6 +238,7 @@ export default function Dashboard() {
       closeCompetitionForm();
       setSavingCompetition(false);
       setNotice("Preview competition created locally. Nothing was sent to the server.");
+      toast.success("Competition created in preview.");
       return;
     }
     try {
@@ -241,9 +246,14 @@ export default function Dashboard() {
       if (!response.data?.success) throw new Error(response.data?.message || "Competition was not created.");
       closeCompetitionForm();
       setNotice("Competition created successfully.");
+      toast.success("Competition created.");
       const refresh = await api.get("/api/admin/competitions");
       setCompetitions(getResponseData(refresh));
-    } catch (requestError) { setError(getErrorMessage(requestError)); }
+    } catch (requestError) {
+      const message = getErrorMessage(requestError);
+      setError(message);
+      toast.error(message);
+    }
     finally { setSavingCompetition(false); }
   }
 
@@ -263,6 +273,7 @@ export default function Dashboard() {
         await new Promise((resolve) => window.setTimeout(resolve, 450));
         setMatches((current) => current.map((item) => item.id === match.id ? { ...item, participant_a_score: a, participant_b_score: b, status: "completed", winning_id: winner } : item));
         setNotice("Score updated in this preview. It was not saved to the server.");
+        toast.success("Match result updated in preview.");
         return;
       }
       await api.put(`/api/match/scores/${selected.id}/${match.id}`, { participant_a_scores: a, participant_b_scores: b });
@@ -273,8 +284,11 @@ export default function Dashboard() {
       const tableResponse = await api.get(`/api/points/competition/${selected.id}`);
       setTable(getResponseData(tableResponse));
       setNotice("Match score and competition table updated.");
+      toast.success("Match result and table updated.");
     } catch (requestError) {
-      setError(`${getErrorMessage(requestError)} The backend points endpoint may require an API correction before standings can be updated.`);
+      const message = `${getErrorMessage(requestError)} The backend points endpoint may require an API correction before standings can be updated.`;
+      setError(message);
+      toast.error(message);
     } finally {
       setSavingMatchId(null);
     }
@@ -299,8 +313,11 @@ export default function Dashboard() {
         setMatches([]);
       }
       setNotice(preview ? "Competition removed from this preview." : "Competition and its records were deleted.");
+      toast.success(preview ? "Competition removed from preview." : "Competition deleted.");
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      const message = getErrorMessage(requestError);
+      setError(message);
+      toast.error(message);
     } finally {
       setDeletingCompetitionId(null);
     }
@@ -316,6 +333,7 @@ export default function Dashboard() {
         const fixtureList = makePreviewFixtures(participants, selected);
         setMatches(fixtureList);
         setNotice("Round-robin fixtures generated in preview mode.");
+        toast.success("Fixtures generated in preview.");
         return;
       }
       const response = await api.post(`/api/matches/add/${selected.id}`);
@@ -327,8 +345,11 @@ export default function Dashboard() {
       setMatches(getResponseData(matchResponse));
       setTable(getResponseData(tableResponse));
       setNotice("Your round-robin fixtures are ready. Game on!");
+      toast.success("Fixtures generated.");
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      const message = getErrorMessage(requestError);
+      setError(message);
+      toast.error(message);
     } finally {
       setGeneratingFixtures(false);
     }
@@ -363,7 +384,7 @@ export default function Dashboard() {
             <section className="dashboard-panel profile-panel" id="profile-card"><div className="profile-top"><Avatar name={user.username} /><span className="profile-tag">PLAYER PROFILE</span></div><h2>{user.username}</h2><p>{user.email}</p><div className="profile-stats"><div><strong>{competitions.length}</strong><span>CREATED</span></div><div><strong>{participations.length}</strong><span>JOINED</span></div><div><strong>{myFixtures.length}</strong><span>FIXTURES</span></div></div><button className="profile-edit" onClick={() => setNotice("Profile editing is not included in the backend API yet.")}>Manage your profile <Arrow /></button></section>
           </div>}
           {activeTab === "Competitions" && <div className="competition-view"><div className="competition-view-head"><div><span className="panel-kicker">YOUR LINE-UP</span><h2>Every competition, one place.</h2></div><div className="competition-filters"><span>{competitions.length} OWNED</span><span>{participations.length} JOINED</span></div></div><div className="competition-list">{allCompetitions.map((competition) => { const mine = competitions.some((item) => item.id === competition.id); return <CompetitionCard key={competition.id} competition={competition} mine={mine} deleting={deletingCompetitionId === competition.id} onSelect={setSelected} onEdit={openCompetitionEditor} onDelete={deleteCompetition} />; })}{!allCompetitions.length && <EmptyState title="Your next rivalry starts here." text="Create a competition or join one with an invite link." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create your first competition <Arrow /></button>} />}</div>
-            {selected && <CompetitionDetail competition={selected} participants={participants} playerMap={playerMap} table={rankedTable} matches={matches} isOwner={isOwner} currentUserId={currentUserId} onScore={updateScore} savingMatchId={savingMatchId} onGenerateFixtures={generateFixtures} generatingFixtures={generatingFixtures} onInvite={() => navigator.clipboard?.writeText(`${window.location.origin}/invite/${selected.share_code}`).then(() => setNotice("Invite link copied to clipboard.")).catch(() => setError("Could not copy the invite link."))} />}
+            {selected && <CompetitionDetail competition={selected} participants={participants} playerMap={playerMap} table={rankedTable} matches={matches} isOwner={isOwner} currentUserId={currentUserId} onScore={updateScore} savingMatchId={savingMatchId} onGenerateFixtures={generateFixtures} generatingFixtures={generatingFixtures} onInvite={() => navigator.clipboard?.writeText(`${window.location.origin}/invite/${selected.share_code}`).then(() => { setNotice("Invite link copied to clipboard."); toast.success("Invite link copied."); }).catch(() => { setError("Could not copy the invite link."); toast.error("Could not copy the invite link."); })} />}
           </div>}
           {activeTab === "My fixtures" && <section className="dashboard-panel fixture-view"><div className="panel-heading"><div><span className="panel-kicker">YOUR NEXT CHALLENGE</span><h2>Fixtures</h2></div><span className="mini-live"><i /> {myFixtures.length} MATCHES</span></div><FixtureListWithScores matches={myFixtures} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} /></section>}
         </section>
