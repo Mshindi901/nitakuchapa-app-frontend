@@ -75,6 +75,17 @@ export default function Landing() {
         <div className="hero-index">01 <span>/</span> THE MATCH IS YOURS</div>
       </section>
       <MatchTicker />
+      <section className="matchday-gallery" aria-label="The PES Mobile matchday">
+        <div className="gallery-heading">
+          <div><span className="section-kicker">BUILT AROUND YOUR GAME <span>✳</span></span><h2>Every rivalry has<br /><em>a story.</em></h2></div>
+          <p>From the first “uko ready?” to the final score, Nitakuchapa brings your crew together around the game.</p>
+        </div>
+        <div className="gallery-grid">
+          <figure className="gallery-card gallery-card-phone"><img src="/Image_2.jpg" alt="Player focused on a football game on their phone" loading="lazy" /><figcaption><span>01 / THE GRIND</span><strong>Every match starts somewhere.</strong></figcaption></figure>
+          <figure className="gallery-card gallery-card-controller"><img src="/image_1.jpg" alt="Game controller ready for a PES Mobile rivalry" loading="lazy" /><figcaption><span>02 / THE RIVALRY</span><strong>Bring your game face.</strong></figcaption></figure>
+          <figure className="gallery-card gallery-card-ball"><img src="/image_3.jpg" alt="Football boot resting on a football" loading="lazy" /><figcaption><span>03 / THE BEAUTIFUL GAME</span><strong>Settle it on the pitch.</strong></figcaption></figure>
+        </div>
+      </section>
       <section className="steps-section" id="how-it-works">
         <div className="section-kicker">LESS ADMIN. MORE ACTION. <span>✳</span></div>
         <div className="steps-heading"><h2>From “uko ready?”<br />to <em>full-time.</em></h2><p>All the competition. None of the spreadsheet stress. Here’s how your next rivalry gets official.</p></div>

@@ -13,6 +13,26 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function getCompetitionForm(competition) {
+  const duration = Number(competition.match_interval);
+  const units = [
+    ["days", 24 * 60 * 60 * 1000],
+    ["hours", 60 * 60 * 1000],
+    ["minutes", 60 * 1000],
+  ];
+  const [interval_unit, multiplier] = units.find(([, unit]) => duration >= unit && duration % unit === 0) || units[2];
+  return {
+    ...blankCompetition,
+    name: competition.name || "",
+    type: competition.type || "league",
+    participant: competition.participants ?? competition.participant ?? 2,
+    interval_number: duration ? duration / multiplier : 1,
+    interval_unit,
+    start_date: String(competition.start_date || "").slice(0, 10),
+    end_date: String(competition.end_date || "").slice(0, 10),
+  };
+}
+
 function getStoredUser(preview) {
   if (preview) return { id: "demo-user", username: "Demo Player", email: "" };
   return getAuthUser() || { username: "Player", email: "" };
@@ -26,14 +46,17 @@ function CompetitionIcon({ type }) {
   </span>;
 }
 
-function CompetitionCard({ competition, onSelect, onDelete, deleting, mine }) {
+function CompetitionCard({ competition, onSelect, onEdit, onDelete, deleting, mine }) {
   return <article className="competition-card">
     <button className="competition-select" onClick={() => onSelect(competition)}>
       <CompetitionIcon type={competition.type} />
       <span className="competition-copy"><span className="competition-type">{competition.type || "league"} · {mine ? "OWNER" : "PLAYER"}</span><strong>{competition.name}</strong><span>{competition.participants || competition.participant || "—"} players · Starts {formatDate(competition.start_date)}</span></span>
       <span className="status-pill">{competition.status || "active"}</span><span className="card-arrow">↗</span>
     </button>
-    {mine && <button className="competition-delete" type="button" onClick={() => onDelete(competition)} disabled={deleting} aria-label={`Delete ${competition.name}`} title="Delete competition"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>}
+    {mine && <div className="competition-actions">
+      <button className="competition-edit" type="button" onClick={() => onEdit(competition)} disabled={deleting} aria-label={`Edit ${competition.name}`} title="Edit competition"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14 5 5 5M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+      <button className="competition-delete" type="button" onClick={() => onDelete(competition)} disabled={deleting} aria-label={`Delete ${competition.name}`} title="Delete competition"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+    </div>}
   </article>;
 }
 
@@ -77,6 +100,7 @@ export default function Dashboard() {
   const [matches, setMatches] = useState(preview ? demoMatches : []);
   const [selected, setSelected] = useState(preview ? demoCompetitions[0] : null);
   const [showCreate, setShowCreate] = useState(false);
+  const [editingCompetition, setEditingCompetition] = useState(null);
   const [form, setForm] = useState(blankCompetition);
   const [notice, setNotice] = useState(() => getAuthToken()
     ? ""
@@ -85,6 +109,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(!preview && Boolean(getAuthToken()));
   const [generatingFixtures, setGeneratingFixtures] = useState(false);
   const [savingMatchId, setSavingMatchId] = useState(null);
+  const [savingCompetition, setSavingCompetition] = useState(false);
   const [deletingCompetitionId, setDeletingCompetitionId] = useState(null);
   const [user] = useState(() => getStoredUser(preview));
 
@@ -148,28 +173,78 @@ export default function Dashboard() {
     window.location.href = "/signin";
   }
 
-  async function createCompetition(event) {
+  function openCompetitionEditor(competition) {
+    setEditingCompetition(competition);
+    setForm(getCompetitionForm(competition));
+    setError("");
+    setNotice("");
+    setShowCreate(true);
+  }
+
+  function closeCompetitionForm() {
+    setShowCreate(false);
+    setEditingCompetition(null);
+    setForm(blankCompetition);
+    setError("");
+  }
+
+  async function saveCompetition(event) {
     event.preventDefault();
     setError("");
     setNotice("");
+    setSavingCompetition(true);
+    if (editingCompetition) {
+      const payload = {
+        name: form.name.trim(),
+        participant: Number(form.participant),
+        start_date: form.start_date,
+        end_date: form.end_date || form.start_date,
+        interval_number: Number(form.interval_number),
+        interval_unit: form.interval_unit,
+      };
+      try {
+        const response = preview
+          ? null
+          : await api.put(`/api/competition/${editingCompetition.id}`, payload);
+        if (response && !response.data?.success) {
+          throw new Error(response.data?.message || "Competition was not updated.");
+        }
+        const updated = response?.data?.data || {
+          ...editingCompetition,
+          ...payload,
+          participants: payload.participant,
+          match_interval: payload.interval_number * ({ minutes: 60000, hours: 3600000, days: 86400000 }[payload.interval_unit]),
+        };
+        setCompetitions((current) => current.map((item) => item.id === editingCompetition.id ? updated : item));
+        setParticipations((current) => current.map((item) => item.id === editingCompetition.id ? updated : item));
+        if (selected?.id === editingCompetition.id) setSelected(updated);
+        setNotice(preview ? "Competition updated in this preview." : "Competition updated successfully.");
+        closeCompetitionForm();
+      } catch (requestError) {
+        setError(getErrorMessage(requestError));
+      } finally {
+        setSavingCompetition(false);
+      }
+      return;
+    }
     if (preview) {
       const demo = { ...form, id: `demo-${Date.now()}`, owner: "demo-user", status: "active", share_code: "new-competition", participants: Number(form.participant) };
       setCompetitions((current) => [demo, ...current]);
       setSelected(demo);
-      setShowCreate(false);
-      setForm(blankCompetition);
+      closeCompetitionForm();
+      setSavingCompetition(false);
       setNotice("Preview competition created locally. Nothing was sent to the server.");
       return;
     }
     try {
       const response = await api.post("/api/competition", { ...form, participant: Number(form.participant), interval_number: Number(form.interval_number), no_of_days: form.no_of_days ? Number(form.no_of_days) : undefined });
       if (!response.data?.success) throw new Error(response.data?.message || "Competition was not created.");
+      closeCompetitionForm();
       setNotice("Competition created successfully.");
-      setShowCreate(false);
-      setForm(blankCompetition);
       const refresh = await api.get("/api/admin/competitions");
       setCompetitions(getResponseData(refresh));
     } catch (requestError) { setError(getErrorMessage(requestError)); }
+    finally { setSavingCompetition(false); }
   }
 
   async function updateScore(match, scoreA, scoreB) {
@@ -211,7 +286,10 @@ export default function Dashboard() {
     setError("");
     setNotice("");
     try {
-      if (!preview) await api.delete(`/api/competition/${competition.id}`);
+      if (!preview) {
+        const response = await api.delete(`/api/competition/${competition.id}`);
+        if (!response.data?.success) throw new Error(response.data?.message || "Competition was not deleted.");
+      }
       setCompetitions((current) => current.filter((item) => item.id !== competition.id));
       setParticipations((current) => current.filter((item) => item.id !== competition.id));
       if (selected?.id === competition.id) {
@@ -272,7 +350,7 @@ export default function Dashboard() {
         <section className="dashboard-content">
           {activeTab === "Overview" && <div className="overview-grid">
             <section className="dashboard-panel competition-panel"><div className="panel-heading"><div><span className="panel-kicker">THE LINE-UP</span><h2>Your competitions</h2></div><button className="panel-action" onClick={() => setTab("Competitions")}>SEE ALL <Arrow /></button></div>
-              <div className="competition-list">{allCompetitions.slice(0, 3).map((competition) => { const mine = competitions.some((item) => item.id === competition.id); return <CompetitionCard key={competition.id} competition={competition} mine={mine} deleting={deletingCompetitionId === competition.id} onSelect={setSelected} onDelete={deleteCompetition} />; })}
+              <div className="competition-list">{allCompetitions.slice(0, 3).map((competition) => { const mine = competitions.some((item) => item.id === competition.id); return <CompetitionCard key={competition.id} competition={competition} mine={mine} deleting={deletingCompetitionId === competition.id} onSelect={setSelected} onEdit={openCompetitionEditor} onDelete={deleteCompetition} />; })}
               {!allCompetitions.length && <EmptyState title="A clean sheet." text="No competitions just yet. Start one and bring your crew in." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create a competition <Arrow /></button>} />}</div>
             </section>
             <section className="dashboard-panel table-panel"><div className="panel-heading"><div><span className="panel-kicker">WHERE THE POINTS LAND</span><h2>{selected?.name || "Your league table"}</h2></div><span className="mini-live"><i /> LIVE TABLE</span></div>
@@ -284,22 +362,23 @@ export default function Dashboard() {
             </section>
             <section className="dashboard-panel profile-panel" id="profile-card"><div className="profile-top"><Avatar name={user.username} /><span className="profile-tag">PLAYER PROFILE</span></div><h2>{user.username}</h2><p>{user.email}</p><div className="profile-stats"><div><strong>{competitions.length}</strong><span>CREATED</span></div><div><strong>{participations.length}</strong><span>JOINED</span></div><div><strong>{myFixtures.length}</strong><span>FIXTURES</span></div></div><button className="profile-edit" onClick={() => setNotice("Profile editing is not included in the backend API yet.")}>Manage your profile <Arrow /></button></section>
           </div>}
-          {activeTab === "Competitions" && <div className="competition-view"><div className="competition-view-head"><div><span className="panel-kicker">YOUR LINE-UP</span><h2>Every competition, one place.</h2></div><div className="competition-filters"><span>{competitions.length} OWNED</span><span>{participations.length} JOINED</span></div></div><div className="competition-list">{allCompetitions.map((competition) => { const mine = competitions.some((item) => item.id === competition.id); return <CompetitionCard key={competition.id} competition={competition} mine={mine} deleting={deletingCompetitionId === competition.id} onSelect={setSelected} onDelete={deleteCompetition} />; })}{!allCompetitions.length && <EmptyState title="Your next rivalry starts here." text="Create a competition or join one with an invite link." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create your first competition <Arrow /></button>} />}</div>
+          {activeTab === "Competitions" && <div className="competition-view"><div className="competition-view-head"><div><span className="panel-kicker">YOUR LINE-UP</span><h2>Every competition, one place.</h2></div><div className="competition-filters"><span>{competitions.length} OWNED</span><span>{participations.length} JOINED</span></div></div><div className="competition-list">{allCompetitions.map((competition) => { const mine = competitions.some((item) => item.id === competition.id); return <CompetitionCard key={competition.id} competition={competition} mine={mine} deleting={deletingCompetitionId === competition.id} onSelect={setSelected} onEdit={openCompetitionEditor} onDelete={deleteCompetition} />; })}{!allCompetitions.length && <EmptyState title="Your next rivalry starts here." text="Create a competition or join one with an invite link." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create your first competition <Arrow /></button>} />}</div>
             {selected && <CompetitionDetail competition={selected} participants={participants} playerMap={playerMap} table={rankedTable} matches={matches} isOwner={isOwner} currentUserId={currentUserId} onScore={updateScore} savingMatchId={savingMatchId} onGenerateFixtures={generateFixtures} generatingFixtures={generatingFixtures} onInvite={() => navigator.clipboard?.writeText(`${window.location.origin}/invite/${selected.share_code}`).then(() => setNotice("Invite link copied to clipboard.")).catch(() => setError("Could not copy the invite link."))} />}
           </div>}
           {activeTab === "My fixtures" && <section className="dashboard-panel fixture-view"><div className="panel-heading"><div><span className="panel-kicker">YOUR NEXT CHALLENGE</span><h2>Fixtures</h2></div><span className="mini-live"><i /> {myFixtures.length} MATCHES</span></div><FixtureListWithScores matches={myFixtures} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} /></section>}
         </section>
       </>}
     </div>
-    {showCreate && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowCreate(false); }}><section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><div className="modal-heading"><div><span className="panel-kicker">MAKE IT OFFICIAL</span><h2 id="create-title">Set up your competition.</h2></div><button className="modal-close" onClick={() => setShowCreate(false)} aria-label="Close">×</button></div><form className="create-form" onSubmit={createCompetition}>
+    {showCreate && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCompetitionForm(); }}><section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><div className="modal-heading"><div><span className="panel-kicker">{editingCompetition ? "UPDATE THE DETAILS" : "MAKE IT OFFICIAL"}</span><h2 id="create-title">{editingCompetition ? "Edit your competition." : "Set up your competition."}</h2></div><button className="modal-close" onClick={closeCompetitionForm} aria-label="Close">×</button></div><form className="create-form" onSubmit={saveCompetition}>
       <label>COMPETITION NAME<input required maxLength="60" placeholder="Friday Night Kings" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-      <div className="form-pair"><label>FORMAT<select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}><option value="league">League</option><option value="tournament">Tournament</option></select></label><label>NUMBER OF PLAYERS<input type="number" min="2" max="64" required value={form.participant} onChange={(e) => setForm({ ...form, participant: e.target.value })} /></label></div>
+      {!editingCompetition && <div className="form-pair"><label>FORMAT<select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}><option value="league">League</option><option value="tournament">Tournament</option></select></label><label>NUMBER OF PLAYERS<input type="number" min="2" max="64" step="1" required value={form.participant} onChange={(e) => setForm({ ...form, participant: e.target.value })} /></label></div>}
+      {editingCompetition && <label>NUMBER OF PLAYERS<input type="number" min="2" max="64" step="1" required value={form.participant} onChange={(e) => setForm({ ...form, participant: e.target.value })} /><small>Capacity cannot be lower than the number of players already joined.</small></label>}
       <div className="form-pair"><label>START DATE<input type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></label><label>END DATE<input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></label></div>
       <div className="form-pair"><label>TIME BETWEEN MATCHES<input type="number" min="1" required value={form.interval_number} onChange={(e) => setForm({ ...form, interval_number: e.target.value })} /></label><label>MEASURE IN<select value={form.interval_unit} onChange={(e) => setForm({ ...form, interval_unit: e.target.value })}><option value="days">Days</option><option value="hours">Hours</option><option value="minutes">Minutes</option></select></label></div>
       <p className="interval-help">Your fixtures will be scheduled one match every {form.interval_number || "—"} {form.interval_unit}.</p>
-      <div className="form-pair"><label>YOUR PLAYER NAME<input required value={form.player_name} onChange={(e) => setForm({ ...form, player_name: e.target.value })} placeholder="Your name in the game" /></label><label>YOUR TEAM<input required value={form.team_name} onChange={(e) => setForm({ ...form, team_name: e.target.value })} placeholder="Your PES team" /></label></div>
-      {error && <div className="form-message form-error">{error}</div>}<button className="button button-brown auth-submit">Create competition <Arrow /></button>
-      <p className="modal-note">The backend also requires a participant count and your player/team details for the initial entry.</p>
+      {!editingCompetition && <div className="form-pair"><label>YOUR PLAYER NAME<input required value={form.player_name} onChange={(e) => setForm({ ...form, player_name: e.target.value })} placeholder="Your name in the game" /></label><label>YOUR TEAM<input required value={form.team_name} onChange={(e) => setForm({ ...form, team_name: e.target.value })} placeholder="Your PES team" /></label></div>}
+      {error && <div className="form-message form-error">{error}</div>}<button className="button button-brown auth-submit" disabled={savingCompetition}>{savingCompetition ? (editingCompetition ? "Saving changes..." : "Creating competition...") : (editingCompetition ? "Save changes" : "Create competition")} <Arrow /></button>
+      {!editingCompetition && <p className="modal-note">The backend also requires a participant count and your player/team details for the initial entry.</p>}
     </form></section></div>}
   </main>;
 }
