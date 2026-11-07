@@ -1,0 +1,68 @@
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { api, getErrorMessage } from "../lib/api";
+import { Arrow, Brand } from "../components/Brand";
+
+export default function AuthPage({ mode }) {
+  const isSignup = mode === "signup";
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      const response = await api.post(isSignup ? "/api/auth/signup" : "/api/auth/signin", isSignup
+        ? { name: form.name, email: form.email, password: form.password }
+        : { email: form.email, password: form.password });
+      if (!response.data?.success) throw new Error(response.data?.message || "The server could not complete this request.");
+      if (isSignup) {
+        setNotice("Account created. You can now sign in.");
+      } else {
+        if (!response.data?.token) {
+          setError("Sign in succeeded, but the server did not return an authentication token.");
+          return;
+        }
+        localStorage.setItem("nitakuchapa_token", response.data.token);
+        localStorage.setItem("nitakuchapa_user", JSON.stringify(response.data.data));
+        navigate(response.data.data?.role === "admin" ? "/admin" : "/dashboard");
+      }
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function enterPreview() {
+    localStorage.setItem("nitakuchapa_preview", "true");
+    navigate("/dashboard");
+  }
+
+  return (
+    <main className="auth-page">
+      <aside className="auth-story"><div className="auth-home"><Brand light /></div><div className="auth-story-content"><div className="eyebrow eyebrow-light"><span className="eyebrow-line" /> THE GAME IS BETTER TOGETHER</div><h1>Every great<br />rivalry needs<br /><em>a record.</em></h1><p>From the first “uko ready?” to the last-minute winner. Keep the fixtures, the table, and every bit of bragging right in one place.</p><div className="auth-quote"><span>“</span><blockquote>Hakuna pressure. Just me, three points, and the group chat.</blockquote><small>— THE ENERGY, ALWAYS</small></div><div className="auth-story-footer">✳ &nbsp; MADE FOR PES MOBILE FANS, EVERYWHERE.</div></div><span className="auth-watermark">N!</span></aside>
+      <section className="auth-form-side"><Link className="auth-back" to="/">← Back to home</Link><div className="auth-form-wrap"><span className="auth-kicker">{isSignup ? "YOUR NEXT MATCH STARTS HERE" : "GOOD TO HAVE YOU BACK"}</span><h2>{isSignup ? "Join the squad." : "Welcome back."}</h2><p className="auth-description">{isSignup ? "Make an account and get your crew’s competition underway." : "Your fixtures aren’t going to check themselves."}</p>
+        <form className="auth-form" onSubmit={submit}>
+          {isSignup && <label>YOUR NAME<input required autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="What should we call you?" /></label>}
+          <label>EMAIL ADDRESS<input required type="email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" /></label>
+          <label>PASSWORD<input required minLength="6" type="password" autoComplete={isSignup ? "new-password" : "current-password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder={isSignup ? "At least 6 characters" : "Your password"} /></label>
+          {error && <div className="form-message form-error" role="alert">{error}</div>}
+          {notice && <div className="form-message form-success" role="status">{notice}</div>}
+          <button className="button button-brown auth-submit" disabled={busy}>{busy ? "One sec..." : isSignup ? "Create your account" : "Sign in"} <Arrow /></button>
+        </form>
+        <div className="auth-switch">{isSignup ? "Already got an account?" : "New to the squad?"} <Link to={isSignup ? "/signin" : "/signup"}>{isSignup ? "Log in" : "Create an account"}</Link></div>
+        <div className="auth-divider"><span /> OR <span /></div>
+        <button className="button button-outline preview-button" onClick={() => setPreview(!preview)}>Explore the demo <Arrow diagonal /></button>
+        {preview && <div className="preview-choice"><p>Take a look around with sample competition data. No account or real API changes needed.</p><button className="button button-dark" onClick={enterPreview}>Enter preview dashboard <Arrow /></button></div>}
+        <p className="auth-terms">By continuing, you agree to keep it competitive and keep it friendly.</p>
+      </div></section>
+    </main>
+  );
+}
