@@ -22,7 +22,7 @@ export function PreviewNotice({ children = "Preview mode · using sample competi
   return <div className="preview-notice"><span className="preview-dot" />{children}</div>;
 }
 
-export function AppHeader({ active = "Overview", onLogout, userName = "Brian Mwangi" }) {
+export function AppHeader({ active = "Overview", onLogout, userName = "Player" }) {
   const items = [
     ["Overview", "/dashboard", "⌂"],
     ["Competitions", "/dashboard?tab=competitions", "▤"],

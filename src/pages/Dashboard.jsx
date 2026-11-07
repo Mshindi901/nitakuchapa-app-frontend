@@ -12,6 +12,15 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function getStoredUser(preview) {
+  if (preview) return { username: "Demo Player", email: "" };
+  try {
+    return JSON.parse(localStorage.getItem("nitakuchapa_user") || "null") || { username: "Player", email: "" };
+  } catch {
+    return { username: "Player", email: "" };
+  }
+}
+
 function CompetitionCard({ competition, onSelect, mine }) {
   return <button className="competition-card" onClick={() => onSelect(competition)}>
     <div className={`competition-icon ${competition.type === "tournament" ? "icon-tournament" : ""}`}>{competition.type === "tournament" ? "✳" : "▤"}</div>
@@ -41,7 +50,7 @@ export default function Dashboard() {
     : "You’re viewing the dashboard shell. Sign in with an API-issued token to load your live competitions, or explore sample data from the sign-in page.");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(!preview && Boolean(localStorage.getItem("nitakuchapa_token")));
-  const [user] = useState({ username: "Brian Mwangi", email: "brian@email.com" });
+  const [user] = useState(() => getStoredUser(preview));
 
   useEffect(() => {
     if (preview) return;
@@ -99,6 +108,7 @@ export default function Dashboard() {
 
   function logout() {
     localStorage.removeItem("nitakuchapa_token");
+    localStorage.removeItem("nitakuchapa_user");
     localStorage.removeItem("nitakuchapa_preview");
     window.location.href = "/signin";
   }
@@ -161,7 +171,7 @@ export default function Dashboard() {
   const myFixtures = matches.filter((match) => [match.participant_a, match.participant_b].some((id) => myParticipantIds.has(id)));
 
   return <main className="dashboard-page">
-    <AppHeader active={activeTab} onLogout={logout} />
+    <AppHeader active={activeTab} onLogout={logout} userName={user.username || user.name || "Player"} />
     <div className="dashboard-shell">
       {preview && <PreviewNotice />}
       <div className="dashboard-greeting"><div><div className="eyebrow"><span className="eyebrow-line" /> YOUR SEASON, YOUR STORY</div><h1>{activeTab === "Overview" ? <>Good game starts<br /><em>right here.</em></> : activeTab === "Competitions" ? <>Your competitions.<br /><em>All in one place.</em></> : <>The fixtures are set.<br /><em>Make them count.</em></>}</h1><p>A proper home for the games that matter. Let’s see where you stand.</p></div><button className="button button-brown create-button" onClick={() => setShowCreate(true)}>＋ <span>Create competition</span></button></div>

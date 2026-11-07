@@ -22,7 +22,7 @@ export const demoCompetitions = [
 ];
 
 export const demoParticipants = [
-  { id: "p1", player_name: "Brian Mwangi", team_name: "Arsenal", user_id: "demo-user" },
+  { id: "p1", player_name: "Demo Player", team_name: "Arsenal", user_id: "demo-user" },
   { id: "p2", player_name: "Kevin Otieno", team_name: "Real Madrid", user_id: "u2" },
   { id: "p3", player_name: "Aisha Wanjiku", team_name: "Barcelona", user_id: "u3" },
   { id: "p4", player_name: "Sam Kimani", team_name: "Liverpool", user_id: "u4" },
@@ -47,7 +47,7 @@ export const demoMatches = [
 ];
 
 export const demoUsers = [
-  { id: "u1", username: "Brian Mwangi", email: "brian@email.com", role: "user" },
+  { id: "u1", username: "Demo Player", email: "player@example.com", role: "user" },
   { id: "u2", username: "Kevin Otieno", email: "kevin@email.com", role: "user" },
   { id: "u3", username: "Aisha Wanjiku", email: "aisha@email.com", role: "user" },
   { id: "u4", username: "Sam Kimani", email: "sam@email.com", role: "user" },
