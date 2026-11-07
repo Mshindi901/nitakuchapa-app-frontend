@@ -13,7 +13,7 @@ function formatDate(value) {
 }
 
 function getStoredUser(preview) {
-  if (preview) return { username: "Demo Player", email: "" };
+  if (preview) return { id: "demo-user", username: "Demo Player", email: "" };
   try {
     return JSON.parse(localStorage.getItem("nitakuchapa_user") || "null") || { username: "Player", email: "" };
   } catch {
@@ -33,6 +33,31 @@ function EmptyState({ title, text, action }) {
   return <div className="empty-state"><span>✳</span><h3>{title}</h3><p>{text}</p>{action}</div>;
 }
 
+function makePreviewFixtures(players, competition) {
+  const rotation = [...players];
+  if (rotation.length % 2 !== 0) rotation.push(null);
+  const roundCount = rotation.length - 1;
+  const start = new Date(competition.start_date).getTime();
+  return Array.from({ length: roundCount }, (_, round) => {
+    const fixtures = [];
+    for (let index = 0; index < rotation.length / 2; index += 1) {
+      const a = rotation[index];
+      const b = rotation[rotation.length - 1 - index];
+      if (a && b) fixtures.push({
+        id: `preview-${competition.id}-${round}-${index}`,
+        league_id: competition.id,
+        participant_a: a.id,
+        participant_b: b.id,
+        round: round + 1,
+        schedule_at: new Date(start + round * (Number(competition.match_interval) || 86400000)).toISOString(),
+        status: "pending",
+      });
+    }
+    rotation.splice(1, 0, rotation.pop());
+    return fixtures;
+  }).flat();
+}
+
 export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") === "fixtures" ? "My fixtures" : searchParams.get("tab") === "competitions" ? "Competitions" : "Overview");
@@ -50,6 +75,7 @@ export default function Dashboard() {
     : "You’re viewing the dashboard shell. Sign in with an API-issued token to load your live competitions, or explore sample data from the sign-in page.");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(!preview && Boolean(localStorage.getItem("nitakuchapa_token")));
+  const [generatingFixtures, setGeneratingFixtures] = useState(false);
   const [user] = useState(() => getStoredUser(preview));
 
   useEffect(() => {
@@ -98,6 +124,7 @@ export default function Dashboard() {
 
   const allCompetitions = useMemo(() => [...competitions, ...participations.filter((item) => !competitions.some((own) => own.id === item.id))], [competitions, participations]);
   const isOwner = selected && competitions.some((item) => item.id === selected.id);
+  const currentUserId = preview ? "demo-user" : user.id;
   const playerMap = useMemo(() => new Map(participants.map((player) => [player.id, player])), [participants]);
   const rankedTable = useMemo(() => [...table].sort((a, b) => (b.total_points || 0) - (a.total_points || 0)), [table]);
 
@@ -164,9 +191,36 @@ export default function Dashboard() {
     }
   }
 
+  async function generateFixtures() {
+    if (!selected || !isOwner) return;
+    setError("");
+    setNotice("");
+    setGeneratingFixtures(true);
+    try {
+      if (preview) {
+        const fixtureList = makePreviewFixtures(participants, selected);
+        setMatches(fixtureList);
+        setNotice("Round-robin fixtures generated in preview mode.");
+        return;
+      }
+      const response = await api.post(`/api/matches/add/${selected.id}`);
+      if (!response.data?.success) throw new Error(response.data?.message || "Fixtures could not be generated.");
+      const [matchResponse, tableResponse] = await Promise.all([
+        api.get(`/api/competition/matches/${selected.id}`),
+        api.get(`/api/points/competition/${selected.id}`),
+      ]);
+      setMatches(getResponseData(matchResponse));
+      setTable(getResponseData(tableResponse));
+      setNotice("Your round-robin fixtures are ready. Game on!");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setGeneratingFixtures(false);
+    }
+  }
+
   const myParticipantIds = new Set([
-    ...participants.filter((player) => player.user_id === "demo-user").map((player) => player.id),
-    ...participations.map((item) => item.id || item.participant_id),
+    ...participants.filter((player) => player.user_id === currentUserId).map((player) => player.id),
   ]);
   const myFixtures = matches.filter((match) => [match.participant_a, match.participant_b].some((id) => myParticipantIds.has(id)));
 
@@ -185,7 +239,7 @@ export default function Dashboard() {
               {!allCompetitions.length && <EmptyState title="A clean sheet." text="No competitions just yet. Start one and bring your crew in." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create a competition <Arrow /></button>} />}</div>
             </section>
             <section className="dashboard-panel table-panel"><div className="panel-heading"><div><span className="panel-kicker">WHERE THE POINTS LAND</span><h2>{selected?.name || "Your league table"}</h2></div><span className="mini-live"><i /> LIVE TABLE</span></div>
-              {rankedTable.length ? <Standings table={rankedTable.slice(0, 5)} playerMap={playerMap} /> : <EmptyState title="No table yet." text="The standings will show up when your competition has players." />}
+              {rankedTable.length ? <Standings table={rankedTable.slice(0, 5)} playerMap={playerMap} currentUserId={currentUserId} /> : <EmptyState title="No table yet." text="The standings will show up when your competition has players." />}
               {selected && <button className="panel-action table-view-action" onClick={() => setActiveTab("Competitions")}>VIEW COMPETITION <Arrow /></button>}
             </section>
             <section className="dashboard-panel fixtures-panel"><div className="panel-heading"><div><span className="panel-kicker">COMING UP NEXT</span><h2>Next fixtures</h2></div><button className="panel-action" onClick={() => setTab("My fixtures")}>ALL FIXTURES <Arrow /></button></div>
@@ -194,7 +248,7 @@ export default function Dashboard() {
             <section className="dashboard-panel profile-panel" id="profile-card"><div className="profile-top"><Avatar name={user.username} /><span className="profile-tag">PLAYER PROFILE</span></div><h2>{user.username}</h2><p>{user.email}</p><div className="profile-stats"><div><strong>{competitions.length}</strong><span>CREATED</span></div><div><strong>{participations.length}</strong><span>JOINED</span></div><div><strong>{myFixtures.length}</strong><span>FIXTURES</span></div></div><button className="profile-edit" onClick={() => setNotice("Profile editing is not included in the backend API yet.")}>Manage your profile <Arrow /></button></section>
           </div>}
           {activeTab === "Competitions" && <div className="competition-view"><div className="competition-view-head"><div><span className="panel-kicker">YOUR LINE-UP</span><h2>Every competition, one place.</h2></div><div className="competition-filters"><span>{competitions.length} OWNED</span><span>{participations.length} JOINED</span></div></div><div className="competition-list">{allCompetitions.map((competition) => <CompetitionCard key={competition.id} competition={competition} mine={competitions.some((item) => item.id === competition.id)} onSelect={setSelected} />)}{!allCompetitions.length && <EmptyState title="Your next rivalry starts here." text="Create a competition or join one with an invite link." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create your first competition <Arrow /></button>} />}</div>
-            {selected && <CompetitionDetail competition={selected} participants={participants} playerMap={playerMap} table={rankedTable} matches={matches} isOwner={isOwner} onScore={updateScore} onInvite={() => navigator.clipboard?.writeText(`${window.location.origin}/invite/${selected.share_code}`).then(() => setNotice("Invite link copied to clipboard.")).catch(() => setError("Could not copy the invite link."))} />}
+            {selected && <CompetitionDetail competition={selected} participants={participants} playerMap={playerMap} table={rankedTable} matches={matches} isOwner={isOwner} currentUserId={currentUserId} onScore={updateScore} onGenerateFixtures={generateFixtures} generatingFixtures={generatingFixtures} onInvite={() => navigator.clipboard?.writeText(`${window.location.origin}/invite/${selected.share_code}`).then(() => setNotice("Invite link copied to clipboard.")).catch(() => setError("Could not copy the invite link."))} />}
           </div>}
           {activeTab === "My fixtures" && <section className="dashboard-panel fixture-view"><div className="panel-heading"><div><span className="panel-kicker">YOUR NEXT CHALLENGE</span><h2>Fixtures</h2></div><span className="mini-live"><i /> {myFixtures.length} MATCHES</span></div><FixtureListWithScores matches={myFixtures} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} /></section>}
         </section>
@@ -212,14 +266,18 @@ export default function Dashboard() {
   </main>;
 }
 
-function Standings({ table, playerMap }) {
-  return <div className="standings-wrap"><table className="standings-table"><thead><tr><th>POS</th><th>PLAYER / TEAM</th><th>PL</th><th>W</th><th>D</th><th>L</th><th>PTS</th></tr></thead><tbody>{table.map((row, i) => { const player = playerMap.get(row.participant_id); const mine = player?.user_id === "demo-user"; return <tr className={mine ? "my-table-row" : ""} key={row.id || row.participant_id || i}><td>{String(i + 1).padStart(2, "0")}</td><td><span className="standings-team">{player?.team_name || "Player"}<small>{player?.player_name || "Competition player"}{mine && <em> YOU</em>}</small></span></td><td>{row.matches_played ?? 0}</td><td>{row.matches_won ?? 0}</td><td>{row.matches_drawn ?? 0}</td><td>{row.matches_lost ?? 0}</td><td><strong>{row.total_points ?? 0}</strong></td></tr>; })}</tbody></table></div>;
+function Standings({ table, playerMap, currentUserId }) {
+  return <div className="standings-wrap"><table className="standings-table"><thead><tr><th>POS</th><th>PLAYER / TEAM</th><th>PL</th><th>W</th><th>D</th><th>L</th><th>PTS</th></tr></thead><tbody>{table.map((row, i) => { const player = playerMap.get(row.participant_id); const mine = Boolean(player && currentUserId && player.user_id === currentUserId); return <tr className={mine ? "my-table-row" : ""} key={row.id || row.participant_id || i}><td>{String(i + 1).padStart(2, "0")}</td><td><span className="standings-team">{player?.team_name || "Player"}<small>{player?.player_name || "Competition player"}{mine && <em className="user-table-badge">✦ YOUR TEAM</em>}</small></span></td><td>{row.matches_played ?? 0}</td><td>{row.matches_won ?? 0}</td><td>{row.matches_drawn ?? 0}</td><td>{row.matches_lost ?? 0}</td><td><strong>{row.total_points ?? 0}</strong></td></tr>; })}</tbody></table></div>;
 }
 
-function CompetitionDetail({ competition, participants, playerMap, table, matches, isOwner, onScore, onInvite }) {
+function CompetitionDetail({ competition, participants, playerMap, table, matches, isOwner, currentUserId, onScore, onGenerateFixtures, generatingFixtures, onInvite }) {
+  const participantLimit = Number(competition.participants ?? competition.participant ?? 0);
+  const isFull = participantLimit > 0 && participants.length === participantLimit;
+  const needsFixtures = isOwner && matches.length === 0;
   return <section className="competition-detail">
-    <div className="detail-header"><div><span className="panel-kicker">{competition.type?.toUpperCase() || "COMPETITION"} · {competition.status?.toUpperCase() || "ACTIVE"}</span><h2>{competition.name}</h2><p>{participants.length} players · Starts {formatDate(competition.start_date)}</p></div>{isOwner && <button className="button button-outline invite-button" onClick={onInvite}>Copy invite link <Arrow diagonal /></button>}</div>
-    <div className="detail-grid">    <div className="dashboard-panel detail-table-panel"><div className="panel-heading"><div><span className="panel-kicker">THE STANDINGS</span><h3>League table</h3></div><span className="standings-count">{table.length} PLAYERS</span></div>{table.length ? <Standings table={table} playerMap={playerMap} /> : <EmptyState title="Waiting for kickoff." text="Your table will take shape after the first results." />}</div>
+    <div className="detail-header"><div><span className="panel-kicker">{competition.type?.toUpperCase() || "COMPETITION"} · {competition.status?.toUpperCase() || "ACTIVE"}</span><h2>{competition.name}</h2><p>{participants.length} of {participantLimit || "—"} players · Starts {formatDate(competition.start_date)}</p></div><div className="detail-actions">{isOwner && <button className="button button-outline invite-button" onClick={onInvite}>Copy invite link <Arrow diagonal /></button>}{needsFixtures && <button className="button button-brown fixture-generate-button" disabled={!isFull || generatingFixtures} onClick={onGenerateFixtures}>{generatingFixtures ? "Generating fixtures..." : isFull ? "⚽ Generate fixtures" : `⚽ Need ${Math.max(0, participantLimit - participants.length)} more players`}</button>}</div></div>
+    {needsFixtures && <div className={`fixture-generation-status ${isFull ? "fixture-generation-ready" : ""}`}><span>{isFull ? "FULL SQUAD · READY FOR KICKOFF" : `${participants.length} / ${participantLimit || "—"} PLAYERS JOINED`}</span><p>{isFull ? "Your round-robin schedule will be created for the whole squad." : "Share the invite link. Fixtures unlock when every player has joined."}</p></div>}
+    <div className="detail-grid"><div className="dashboard-panel detail-table-panel"><div className="panel-heading"><div><span className="panel-kicker">THE STANDINGS</span><h3>League table</h3></div><span className="standings-count">{table.length} PLAYERS</span></div>{table.length ? <Standings table={table} playerMap={playerMap} currentUserId={currentUserId} /> : <EmptyState title="Waiting for kickoff." text="Your table will take shape after the first results." />}</div>
       <div className="dashboard-panel detail-fixtures"><div className="panel-heading"><div><span className="panel-kicker">MATCHDAY</span><h3>Fixtures & results</h3></div>{isOwner && <span className="score-hint">Add scores to update table</span>}</div><FixtureListWithScores matches={matches} playerMap={playerMap} onScore={onScore} canScore={Boolean(isOwner)} /></div>
       <div className="dashboard-panel participants-panel"><div className="panel-heading"><div><span className="panel-kicker">THE SQUAD</span><h3>Players <span className="player-count">{participants.length}</span></h3></div></div>{participants.length ? <div className="participants-list">{participants.map((player) => <div className="participant-row" key={player.id}><Avatar small name={player.player_name} /><span><b>{player.player_name}</b><small>{player.team_name}</small></span><span className="participant-member">{player.user_id ? "MEMBER" : "GUEST"}</span></div>)}</div> : <EmptyState title="Squad up." text="Share the invite link to bring players in." />}</div>
     </div>

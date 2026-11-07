@@ -66,7 +66,7 @@ export default function Landing() {
       <section className="hero-section">
         <div className="hero-copy">
           <div className="eyebrow"><span className="eyebrow-line" /> BUILT FOR THE BEAUTIFUL GAME</div>
-          <h1>Your squad.<br />Your rules.<br /><span>Your bragging rights.</span></h1>
+          <h1 className="banner-title">Your squad.<br />Your rules.<br /><span>Your bragging rights.</span></h1>
           <p>Every match deserves a proper table. Bring your PES Mobile crew together, run the competition, and let the results do the talking.</p>
           <div className="hero-actions"><Link className="button button-brown" to="/signup">Start your competition <Arrow /></Link><Link className="button button-outline" to="/coming-soon">See how it works <span className="play-icon">▶</span></Link></div>
           <div className="hero-proof"><div className="proof-avatars"><span>BK</span><span>AO</span><span>JM</span><span>+</span></div><span>Made for the ones who <b>never skip a rematch.</b></span></div>

@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, getErrorMessage } from "../lib/api";
 import { Arrow, Brand } from "../components/Brand";
 
 export default function AuthPage({ mode }) {
   const isSignup = mode === "signup";
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteId = searchParams.get("invite");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -24,6 +26,9 @@ export default function AuthPage({ mode }) {
       if (!response.data?.success) throw new Error(response.data?.message || "The server could not complete this request.");
       if (isSignup) {
         setNotice("Account created. You can now sign in.");
+        if (inviteId) {
+          navigate(`/signin?invite=${encodeURIComponent(inviteId)}`);
+        }
       } else {
         if (!response.data?.token) {
           setError("Sign in succeeded, but the server did not return an authentication token.");
@@ -31,7 +36,9 @@ export default function AuthPage({ mode }) {
         }
         localStorage.setItem("nitakuchapa_token", response.data.token);
         localStorage.setItem("nitakuchapa_user", JSON.stringify(response.data.data));
-        navigate(response.data.data?.role === "admin" ? "/admin" : "/dashboard");
+        navigate(inviteId
+          ? `/invite/${encodeURIComponent(inviteId)}`
+          : response.data.data?.role === "admin" ? "/admin" : "/dashboard");
       }
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -57,7 +64,7 @@ export default function AuthPage({ mode }) {
           {notice && <div className="form-message form-success" role="status">{notice}</div>}
           <button className="button button-brown auth-submit" disabled={busy}>{busy ? "One sec..." : isSignup ? "Create your account" : "Sign in"} <Arrow /></button>
         </form>
-        <div className="auth-switch">{isSignup ? "Already got an account?" : "New to the squad?"} <Link to={isSignup ? "/signin" : "/signup"}>{isSignup ? "Log in" : "Create an account"}</Link></div>
+        <div className="auth-switch">{isSignup ? "Already got an account?" : "New to the squad?"} <Link to={`${isSignup ? "/signin" : "/signup"}${inviteId ? `?invite=${encodeURIComponent(inviteId)}` : ""}`}>{isSignup ? "Log in" : "Create an account"}</Link></div>
         <div className="auth-divider"><span /> OR <span /></div>
         <button className="button button-outline preview-button" onClick={() => setPreview(!preview)}>Explore the demo <Arrow diagonal /></button>
         {preview && <div className="preview-choice"><p>Take a look around with sample competition data. No account or real API changes needed.</p><button className="button button-dark" onClick={enterPreview}>Enter preview dashboard <Arrow /></button></div>}
