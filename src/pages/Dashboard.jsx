@@ -13,6 +13,30 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function getReturnLegStorageKey(competitionId) {
+  return `nitakuchapa_return_leg_scores_${competitionId}`;
+}
+
+function getReturnLegResults(competitionId) {
+  const saved = localStorage.getItem(getReturnLegStorageKey(competitionId));
+  if (!saved) return {};
+  const results = JSON.parse(saved);
+  if (!results || typeof results !== "object" || Array.isArray(results)) {
+    throw new Error("Saved return-leg scores have an invalid format.");
+  }
+  return results;
+}
+
+function loadReturnLegState(competitionId, showLegs) {
+  if (!showLegs || !competitionId) return { results: {}, error: "" };
+  try {
+    return { results: getReturnLegResults(competitionId), error: "" };
+  } catch (error) {
+    console.error("Could not load locally saved return-leg scores.", error);
+    return { results: {}, error: "Return-leg scores saved on this device could not be loaded." };
+  }
+}
+
 function getCompetitionForm(competition) {
   const duration = Number(competition.match_interval);
   const units = [
@@ -128,6 +152,7 @@ export default function Dashboard() {
   const currentUserId = user.id;
   const playerMap = useMemo(() => new Map(participants.map((player) => [player.id, player])), [participants]);
   const rankedTable = useMemo(() => [...table].sort((a, b) => (b.total_points || 0) - (a.total_points || 0)), [table]);
+  const totalRounds = useMemo(() => Math.max(0, ...matches.map((match) => Number(match.round) || 0)), [matches]);
 
   function setTab(tab) {
     setSearchParams(tab === "Overview" ? {} : { tab: tab === "My fixtures" ? "fixtures" : "competitions" });
@@ -275,8 +300,8 @@ export default function Dashboard() {
       ]);
       setMatches(getResponseData(matchResponse));
       setTable(getResponseData(tableResponse));
-      setNotice("Your round-robin fixtures are ready. Game on!");
-      toast.success("Fixtures generated.");
+      setNotice("First-leg fixtures are ready. Use the fixture tabs to view the return leg.");
+      toast.success("First-leg fixtures generated.");
     } catch (requestError) {
       const message = getErrorMessage(requestError);
       setError(message);
@@ -309,14 +334,14 @@ export default function Dashboard() {
               {selected && <button className="panel-action table-view-action" onClick={() => setTab("Competitions")}>VIEW COMPETITION <Arrow /></button>}
             </section>
             <section className="dashboard-panel fixtures-panel"><div className="panel-heading"><div><span className="panel-kicker">COMING UP NEXT</span><h2>Next fixtures</h2></div><button className="panel-action" onClick={() => setTab("My fixtures")}>ALL FIXTURES <Arrow /></button></div>
-              <FixtureListWithScores matches={matches.filter((match) => match.status !== "completed").slice(0, 2)} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} />
+              <FixtureListWithScores key={`overview-${selected?.id || "none"}`} matches={matches.filter((match) => match.status !== "completed").slice(0, 2)} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} competitionId={selected?.id} matchInterval={selected?.match_interval} showLegs={false} />
             </section>
             <section className="dashboard-panel profile-panel" id="profile-card"><div className="profile-top"><Avatar name={user.username} /><span className="profile-tag">PLAYER PROFILE</span></div><h2>{user.username}</h2><p>{user.email}</p><div className="profile-stats"><div><strong>{competitions.length}</strong><span>CREATED</span></div><div><strong>{participations.length}</strong><span>JOINED</span></div><div><strong>{myFixtures.length}</strong><span>FIXTURES</span></div></div><button className="profile-edit" onClick={() => setNotice("Profile editing is not included in the backend API yet.")}>Manage your profile <Arrow /></button></section>
           </div>}
           {activeTab === "Competitions" && <div className="competition-view"><div className="competition-view-head"><div><span className="panel-kicker">YOUR LINE-UP</span><h2>Every competition, one place.</h2></div><div className="competition-filters"><span>{competitions.length} OWNED</span><span>{participations.length} JOINED</span></div></div><div className="competition-list">{allCompetitions.map((competition) => { const mine = competitions.some((item) => item.id === competition.id); return <CompetitionCard key={competition.id} competition={competition} mine={mine} deleting={deletingCompetitionId === competition.id} onSelect={setSelected} onEdit={openCompetitionEditor} onDelete={deleteCompetition} />; })}{!allCompetitions.length && <EmptyState title="Your next rivalry starts here." text="Create a competition or join one with an invite link." action={<button className="button button-brown" onClick={() => setShowCreate(true)}>Create your first competition <Arrow /></button>} />}</div>
             {selected && <CompetitionDetail competition={selected} participants={participants} playerMap={playerMap} table={rankedTable} matches={matches} isOwner={isOwner} currentUserId={currentUserId} onScore={updateScore} savingMatchId={savingMatchId} onGenerateFixtures={generateFixtures} generatingFixtures={generatingFixtures} onInvite={() => navigator.clipboard?.writeText(`${window.location.origin}/invite/${selected.share_code}`).then(() => { setNotice("Invite link copied to clipboard."); toast.success("Invite link copied."); }).catch(() => { setError("Could not copy the invite link."); toast.error("Could not copy the invite link."); })} />}
           </div>}
-          {activeTab === "My fixtures" && <section className="dashboard-panel fixture-view"><div className="panel-heading"><div><span className="panel-kicker">YOUR NEXT CHALLENGE</span><h2>Fixtures</h2></div><span className="mini-live"><i /> {myFixtures.length} MATCHES</span></div><FixtureListWithScores matches={myFixtures} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} /></section>}
+          {activeTab === "My fixtures" && <section className="dashboard-panel fixture-view"><div className="panel-heading"><div><span className="panel-kicker">YOUR NEXT CHALLENGE</span><h2>Fixtures</h2></div><span className="mini-live"><i /> {myFixtures.length} MATCHES</span></div><FixtureListWithScores key={`my-fixtures-${selected?.id || "none"}`} matches={myFixtures} playerMap={playerMap} onScore={updateScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} competitionId={selected?.id} matchInterval={selected?.match_interval} totalRounds={totalRounds} /></section>}
         </section>
       </>}
     </div>
@@ -344,26 +369,88 @@ function CompetitionDetail({ competition, participants, playerMap, table, matche
   const needsFixtures = isOwner && matches.length === 0;
   return <section className="competition-detail">
     <div className="detail-header"><div><span className="panel-kicker">{competition.type?.toUpperCase() || "COMPETITION"} · {competition.status?.toUpperCase() || "ACTIVE"}</span><h2>{competition.name}</h2><p>{participants.length} of {participantLimit || "—"} players · Starts {formatDate(competition.start_date)}</p></div><div className="detail-actions">{isOwner && <button className="button button-outline invite-button" onClick={onInvite}>Copy invite link <Arrow diagonal /></button>}{needsFixtures && <button className="button button-brown fixture-generate-button" disabled={!isFull || generatingFixtures} onClick={onGenerateFixtures}>{generatingFixtures ? "Generating fixtures..." : isFull ? "⚽ Generate fixtures" : `⚽ Need ${Math.max(0, participantLimit - participants.length)} more players`}</button>}</div></div>
-    {needsFixtures && <div className={`fixture-generation-status ${isFull ? "fixture-generation-ready" : ""}`}><span>{isFull ? "FULL SQUAD · READY FOR KICKOFF" : `${participants.length} / ${participantLimit || "—"} PLAYERS JOINED`}</span><p>{isFull ? "Your round-robin schedule will be created for the whole squad." : "Share the invite link. Fixtures unlock when every player has joined."}</p></div>}
+    {needsFixtures &&     <div className={`fixture-generation-status ${isFull ? "fixture-generation-ready" : ""}`}><span>{isFull ? "FULL SQUAD · READY FOR KICKOFF" : `${participants.length} / ${participantLimit || "—"} PLAYERS JOINED`}</span><p>{isFull ? "Your first-leg round-robin schedule will be created for the whole squad." : "Share the invite link. Fixtures unlock when every player has joined."}</p></div>}
     <div className="detail-grid"><div className="dashboard-panel detail-table-panel"><div className="panel-heading"><div><span className="panel-kicker">THE STANDINGS</span><h3>League table</h3></div><span className="standings-count">{table.length} PLAYERS</span></div>{table.length ? <Standings table={table} playerMap={playerMap} currentUserId={currentUserId} /> : <EmptyState title="Waiting for kickoff." text="Your table will take shape after the first results." />}</div>
-      <div className="dashboard-panel detail-fixtures"><div className="panel-heading"><div><span className="panel-kicker">MATCHDAY</span><h3>Fixtures & results</h3></div>{isOwner && <span className="score-hint">Add scores to update table</span>}</div><FixtureListWithScores matches={matches} playerMap={playerMap} onScore={onScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} /></div>
+      <div className="dashboard-panel detail-fixtures"><div className="panel-heading"><div><span className="panel-kicker">MATCHDAY</span><h3>Fixtures & results</h3></div>{isOwner && <span className="score-hint">Add first-leg scores to update table</span>}</div><FixtureListWithScores key={competition.id} matches={matches} playerMap={playerMap} onScore={onScore} canScore={Boolean(isOwner)} savingMatchId={savingMatchId} competitionId={competition.id} matchInterval={competition.match_interval} /></div>
       <div className="dashboard-panel participants-panel"><div className="panel-heading"><div><span className="panel-kicker">THE SQUAD</span><h3>Players <span className="player-count">{participants.length}</span></h3></div></div>{participants.length ? <div className="participants-list">{participants.map((player) => <div className="participant-row" key={player.id}><Avatar small name={player.player_name} /><span><b>{player.player_name}</b><small>{player.team_name}</small></span><span className="participant-member">{player.user_id ? "MEMBER" : "GUEST"}</span></div>)}</div> : <EmptyState title="Squad up." text="Share the invite link to bring players in." />}</div>
     </div>
   </section>;
 }
 
-function FixtureListWithScores({ matches, playerMap, onScore, canScore, savingMatchId }) {
+function FixtureListWithScores({ matches, playerMap, onScore, canScore, savingMatchId, competitionId, matchInterval, totalRounds, showLegs = true }) {
+  const [activeLeg, setActiveLeg] = useState(1);
+  const [returnLegState, setReturnLegState] = useState(() => loadReturnLegState(competitionId, showLegs));
+  const { results: returnLegResults, error: localError } = returnLegState;
+
   if (!matches.length) return <EmptyState title="Fixtures are getting ready." text="Your match schedule will appear here." />;
-  return <div className="fixture-list">{matches.map((match) => {
+
+  const maxRound = totalRounds ?? Math.max(...matches.map((match) => Number(match.round) || 0));
+  const interval = Number(matchInterval);
+  const roundDuration = Number.isFinite(interval) && interval > 0 ? interval : 24 * 60 * 60 * 1000;
+  const returnMatches = matches.map((match) => {
+    const id = `${match.id}-return`;
+    const result = returnLegResults[id];
+    const schedule = match.schedule_at ? new Date(match.schedule_at) : null;
+    const hasSchedule = schedule && Number.isFinite(schedule.getTime());
+    const returnSchedule = hasSchedule ? new Date(schedule.getTime() + roundDuration * maxRound) : null;
+    const returnScheduleValid = returnSchedule && Number.isFinite(returnSchedule.getTime());
+    return {
+      ...match,
+      id,
+      originalMatchId: match.id,
+      participant_a: match.participant_b,
+      participant_b: match.participant_a,
+      round: maxRound + (Number(match.round) || 1),
+      schedule_at: returnScheduleValid ? returnSchedule.toISOString() : null,
+      leg: 2,
+      participant_a_score: result?.participant_a_score ?? null,
+      participant_b_score: result?.participant_b_score ?? null,
+      status: result ? "completed" : "pending",
+    };
+  });
+  const visibleMatches = !showLegs || activeLeg === 1 ? matches : returnMatches;
+
+  function saveReturnLegScore(match, scoreA, scoreB) {
+    if (!showLegs || !competitionId) return;
+    const a = Number(scoreA);
+    const b = Number(scoreB);
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0) {
+      setReturnLegState((current) => ({ ...current, error: "Enter a non-negative whole-number score for both teams." }));
+      return;
+    }
+    try {
+      const saved = getReturnLegResults(competitionId);
+      const next = {
+        ...saved,
+        [match.id]: { participant_a_score: a, participant_b_score: b },
+      };
+      localStorage.setItem(getReturnLegStorageKey(competitionId), JSON.stringify(next));
+      setReturnLegState({ results: next, error: "" });
+    } catch (error) {
+      console.error("Could not save the return-leg score on this device.", error);
+      setReturnLegState((current) => ({ ...current, error: "Could not save this return-leg score on this device. Check your browser storage settings." }));
+    }
+  }
+
+  return <div>
+    {showLegs && <div className="fixture-leg-controls" role="tablist" aria-label="Fixture legs">
+      {[1, 2].map((leg) => <button key={leg} type="button" role="tab" aria-selected={activeLeg === leg} className={activeLeg === leg ? "fixture-leg-active" : ""} onClick={() => setActiveLeg(leg)}>
+        {leg === 1 ? "1st Leg" : "2nd Leg"} <span>{leg === 1 ? matches.length : returnMatches.length}</span>
+      </button>)}
+    </div>}
+    {showLegs && activeLeg === 2 && <p className="fixture-leg-note">Return-leg fixtures reverse the first-leg home and away teams. Their scores are saved only in this browser and do not update shared standings.</p>}
+    {localError && <p className="fixture-leg-error" role="alert">{localError}</p>}
+    <div className="fixture-list">{visibleMatches.map((match) => {
     const scheduled = new Date(match.schedule_at);
     const scheduleValid = Boolean(match.schedule_at) && Number.isFinite(scheduled.getTime());
     const saving = savingMatchId === match.id;
     return <article className={`fixture-row ${saving ? "fixture-row-saving" : ""}`} key={match.id}>
       <div className="fixture-date"><strong>{scheduleValid ? scheduled.toLocaleDateString("en-KE", { day: "2-digit" }) : "TBD"}</strong><span>{scheduleValid ? scheduled.toLocaleDateString("en-KE", { month: "short" }).toUpperCase() : "DATE"}</span></div>
-      <div className="fixture-teams"><strong>{playerMap.get(match.participant_a)?.team_name || "Team A"} <span>vs</span> {playerMap.get(match.participant_b)?.team_name || "Team B"}</strong><small>{playerMap.get(match.participant_a)?.player_name || "Player"} · {playerMap.get(match.participant_b)?.player_name || "Player"} <span>ROUND {match.round || "—"}</span></small><time className="fixture-kickoff">{scheduleValid ? scheduled.toLocaleTimeString("en-KE", { hour: "numeric", minute: "2-digit" }) : "Schedule pending"}</time></div>
-      {canScore && match.status !== "completed" ? <ScoreInput match={match} onScore={onScore} saving={saving} busy={savingMatchId !== null} /> : <div className={match.status === "completed" ? "fixture-result" : "fixture-pending"}>{saving ? <><span className="loading-spinner" /> Updating table…</> : match.status === "completed" ? <>{match.participant_a_score} — {match.participant_b_score}<small>FULL TIME</small></> : "UP NEXT"}</div>}
+      <div className="fixture-teams"><strong>{playerMap.get(match.participant_a)?.team_name || "Team A"} <span>vs</span> {playerMap.get(match.participant_b)?.team_name || "Team B"}</strong><small>{playerMap.get(match.participant_a)?.player_name || "Player"} · {playerMap.get(match.participant_b)?.player_name || "Player"} <span>ROUND {match.round || "—"} · LEG {activeLeg}</span></small><time className="fixture-kickoff">{scheduleValid ? scheduled.toLocaleTimeString("en-KE", { hour: "numeric", minute: "2-digit" }) : "Schedule pending"}</time></div>
+      {canScore && match.status !== "completed" ? <ScoreInput key={match.id} match={match} onScore={match.leg === 2 ? saveReturnLegScore : onScore} saving={saving} busy={savingMatchId !== null} /> : <div className={match.status === "completed" ? "fixture-result" : "fixture-pending"}>{saving ? <><span className="loading-spinner" /> Updating table…</> : match.status === "completed" ? <>{match.participant_a_score} — {match.participant_b_score}<small>{match.leg === 2 ? "SAVED ON THIS DEVICE" : "FULL TIME"}</small></> : "UP NEXT"}</div>}
     </article>;
-  })}</div>;
+  })}</div>
+  </div>;
 }
 
 function ScoreInput({ match, onScore, saving, busy }) {

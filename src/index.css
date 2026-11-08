@@ -182,6 +182,69 @@
   }
 }
 
+.fixture-leg-controls {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fixture-leg-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #777066;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fixture-leg-controls button:hover,
+.fixture-leg-controls .fixture-leg-active {
+  border-color: #dfd4c5;
+  background: #f3eee6;
+  color: #60442d;
+}
+
+.fixture-leg-controls button span {
+  display: grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 10px;
+  background: #e8e1d7;
+  color: #70665a;
+  font: 10px var(--mono);
+}
+
+.fixture-leg-note,
+.fixture-leg-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #e8e0d4;
+  background: #f7f3ec;
+  color: #74695e;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.fixture-leg-error {
+  border-color: #e6c6bd;
+  background: #fbf0ed;
+  color: #8c4537;
+}
+
+@media (max-width: 440px) {
+  .fixture-leg-controls button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 .matchday-gallery {
   padding: 82px 8% 92px;
   background: #f0ece4;
