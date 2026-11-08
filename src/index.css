@@ -903,3 +903,214 @@
     font-size: 11px;
   }
 }
+
+:root {
+  --ink: #171614;
+  --brown: #171614;
+  --deep: #11100f;
+  --cream: #f6f0e5;
+  --muted: #716b63;
+  --line: #e4d9c8;
+  --green: #b94f20;
+  --accent: #bd4f1f;
+  --accent-dark: #963b16;
+  --accent-soft: #f2dfd0;
+}
+
+body {
+  color: var(--ink);
+  background: var(--cream);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline-color: var(--accent);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.brand-mark,
+.button-dark,
+.button-dark:hover,
+.logout-button:hover,
+.invite-cta-icon {
+  background-color: var(--ink);
+}
+
+.brand-period,
+.brand-mark span,
+.site-nav a:hover,
+.text-link:hover,
+.hero-copy h1 span,
+.coming-intro h1 em,
+.gallery-heading h2 em,
+.auth-story h1 em,
+.invite-story h1 em,
+.table-card-title span,
+.fixture-kickoff,
+.eyebrow-line {
+  color: var(--accent);
+}
+
+.eyebrow-line {
+  background-color: var(--accent);
+}
+
+.button-brown,
+.button-brown:hover,
+.fixture-leg-controls .fixture-leg-active,
+.fixture-leg-controls button:hover,
+.score-save,
+.score-save:hover {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: #fffaf3;
+}
+
+.button-brown:hover,
+.score-save:hover {
+  background-color: var(--accent-dark);
+}
+
+.button-outline {
+  border-color: #bfb4a5;
+  color: var(--ink);
+}
+
+.button-outline:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.site-header,
+.dashboard-panel,
+.competition-card,
+.create-modal,
+.floating-score,
+.floating-table,
+.floating-live,
+.guest-benefit,
+.guest-saved-notice,
+.invite-card,
+.invite-form-card,
+.admin-stat,
+.admin-list {
+  border-color: var(--line);
+}
+
+.site-header,
+.dashboard-page,
+.admin-page,
+.participant-page,
+.invite-page,
+.matchday-gallery {
+  background-color: var(--cream);
+}
+
+.dashboard-panel,
+.competition-card,
+.create-modal,
+.floating-score,
+.floating-table,
+.floating-live,
+.guest-benefit,
+.invite-card,
+.invite-form-card,
+.admin-stat,
+.admin-list {
+  background-color: #fffaf1;
+}
+
+.dashboard-greeting h1,
+.panel-heading h2,
+.panel-heading h3,
+.competition-copy > strong,
+.detail-header h2,
+.profile-panel h2,
+.gallery-heading h2,
+.guest-benefit > div > b {
+  color: var(--ink);
+}
+
+.dashboard-tabs button:hover,
+.dashboard-tabs .dashboard-tab-active,
+.panel-action,
+.profile-edit,
+.competition-edit,
+.competition-delete,
+.competition-icon,
+.competition-type,
+.status-pill {
+  color: var(--accent);
+}
+
+.dashboard-tabs .dashboard-tab-active {
+  border-color: var(--accent);
+}
+
+.mini-live i,
+.live-pulse,
+.preview-dot {
+  background-color: var(--accent);
+  box-shadow: 0 0 0 3px #bd4f1f24;
+}
+
+.pitch {
+  border-color: #bd4f1f55;
+  background: repeating-linear-gradient(90deg, #bd4f1f14 0, #bd4f1f14 72px, #1716140a 72px, #1716140a 144px);
+}
+
+.pitch::before,
+.pitch::after,
+.pitch-half,
+.pitch-center,
+.pitch-box {
+  border-color: #17161438;
+}
+
+.pitch-player,
+.player-one,
+.player-two,
+.player-three,
+.player-four,
+.player-five,
+.player-six {
+  background-color: var(--accent);
+}
+
+.guest-saved-notice::before,
+.fixture-leg-controls .fixture-leg-active span {
+  background-color: var(--accent);
+}
+
+.fixture-leg-controls .fixture-leg-active span {
+  color: #fffaf3;
+}
+
+.user-table-badge,
+.my-table-row td:first-child {
+  background-color: var(--accent);
+  color: #fffaf3 !important;
+}
+
+.my-table-row {
+  background: linear-gradient(90deg, #f3e1d2 0%, #fff8ed 100%) !important;
+  box-shadow: inset 4px 0 var(--accent);
+}
+
+.my-table-row .standings-team {
+  color: var(--ink);
+}
+
+.competition-edit:hover:not(:disabled),
+.competition-delete:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fffaf3;
+}
