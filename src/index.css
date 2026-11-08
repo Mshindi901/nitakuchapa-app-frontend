@@ -1114,3 +1114,396 @@ select:focus-visible {
   background: var(--accent);
   color: #fffaf3;
 }
+
+.landing-page,
+.coming-page,
+.auth-page,
+.invite-page,
+.dashboard-page {
+  color: var(--ink);
+  background-color: var(--cream);
+}
+
+.hero-section,
+.coming-hero {
+  background: radial-gradient(ellipse at 75% 48%, #eadcc8 0, transparent 53%);
+}
+
+.steps-section,
+.coming-steps,
+.auth-form-side,
+.invite-layout,
+.dashboard-page,
+.app-header,
+.site-header {
+  background-color: var(--cream);
+}
+
+.step-card,
+.countdown-card,
+.coming-step-grid article,
+.invite-card,
+.invite-form-card,
+.dashboard-panel,
+.competition-card,
+.admin-stat,
+.admin-list,
+.create-modal,
+.floating-score,
+.floating-table,
+.floating-live,
+.guest-benefit {
+  border-color: var(--line);
+  background-color: #fffaf1;
+}
+
+.ticker-wrap,
+.about-section,
+.site-footer,
+.auth-story {
+  background-color: var(--ink);
+  color: var(--cream);
+}
+
+.ticker-wrap {
+  border-color: #302d29;
+}
+
+.ticker-match,
+.ticker-match > b,
+.ticker-live {
+  color: var(--cream);
+}
+
+.ticker-live i,
+.ticker-match > span {
+  color: var(--accent);
+}
+
+.cta-section,
+.coming-footer,
+.step-card {
+  background-color: #efe5d6;
+}
+
+.hero-copy h1,
+.steps-heading h2,
+.coming-intro h1,
+.coming-steps > h2,
+.auth-form-wrap h2,
+.invite-form-card > h2,
+.dashboard-greeting h1,
+.panel-heading h2,
+.competition-view-head h2,
+.detail-header h2,
+.profile-panel h2,
+.gallery-heading h2,
+.coming-step-grid h3,
+.step-card h3 {
+  color: var(--ink);
+}
+
+.hero-copy h1 span,
+.steps-heading h2 em,
+.coming-intro h1 em,
+.coming-steps > h2 em,
+.cta-section h2 em,
+.gallery-heading h2 em,
+.auth-story h1 em,
+.invite-story h1 em {
+  color: var(--accent);
+}
+
+.hero-copy > p,
+.coming-intro > p,
+.steps-heading > p,
+.step-card p,
+.coming-step-grid p,
+.gallery-heading > p,
+.auth-description,
+.auth-switch,
+.auth-terms,
+.invite-story > p,
+.invite-form-card > p,
+.invite-privacy,
+.dashboard-greeting > div > p,
+.detail-header p,
+.guest-note,
+.guest-benefit > div > p {
+  color: var(--muted);
+}
+
+.auth-story,
+.auth-story h1,
+.auth-story .brand,
+.auth-story .brand-word,
+.auth-story-content > p,
+.auth-story-footer,
+.auth-quote blockquote,
+.auth-quote small {
+  color: var(--cream);
+}
+
+.auth-form label,
+.create-form label {
+  color: #4a433a;
+}
+
+.auth-form input,
+.create-form input,
+.create-form select {
+  border-color: #d7cbbb;
+  background-color: #fffaf1;
+  color: var(--ink);
+}
+
+.auth-form input:focus,
+.create-form input:focus,
+.create-form select:focus {
+  border-color: var(--accent);
+}
+
+.auth-form input::placeholder,
+.create-form input::placeholder {
+  color: #8d8478;
+}
+
+.button-brown,
+.button-brown:hover,
+.auth-submit,
+.invite-next,
+.invite-signup,
+.score-save,
+.guest-benefit-link {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: #fffaf3;
+}
+
+.button-brown:hover,
+.auth-submit:hover:not(:disabled),
+.invite-next:hover,
+.invite-signup:hover,
+.score-save:hover:not(:disabled),
+.guest-benefit-link:hover {
+  border-color: var(--accent-dark);
+  background-color: var(--accent-dark);
+  color: #fffaf3;
+}
+
+.button-dark,
+.button-dark:hover {
+  background-color: var(--ink);
+  color: var(--cream);
+}
+
+.button-cream {
+  border-color: #e8dccb;
+  background-color: var(--cream);
+  color: var(--ink);
+}
+
+.button-cream:hover {
+  border-color: var(--accent);
+  background-color: #fffaf1;
+  color: var(--ink);
+}
+
+.button-outline {
+  border-color: #bfb4a5;
+  background-color: transparent;
+  color: var(--ink);
+}
+
+.button-outline:hover {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.site-nav a,
+.text-link,
+.auth-back,
+.invite-account-note > a,
+.invite-signup,
+.guest-note a,
+.guest-benefit-link,
+.admin-footnote > a {
+  color: var(--accent-dark);
+}
+
+.site-nav a:hover,
+.text-link:hover,
+.auth-back:hover,
+.guest-note a:hover,
+.admin-footnote > a:hover {
+  color: var(--accent);
+}
+
+.brand-mark,
+.app-header .brand-mark,
+.invite-cta-icon {
+  background-color: var(--ink);
+  color: var(--cream);
+}
+
+.brand-period,
+.brand-mark span,
+.brand-light .brand-period,
+.brand-light .brand-mark span {
+  color: var(--accent);
+}
+
+.app-nav a,
+.profile-button,
+.panel-heading,
+.competition-copy > strong,
+.fixture-teams > strong,
+.standings-team,
+.profile-panel h2,
+.admin-data-primary,
+.admin-stat > strong,
+.admin-list h2 {
+  color: var(--ink);
+}
+
+.app-nav .app-nav-active,
+.dashboard-tabs .dashboard-tab-active,
+.dashboard-tabs button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.panel-action,
+.profile-edit,
+.competition-edit,
+.competition-delete,
+.competition-icon,
+.competition-type,
+.fixture-kickoff,
+.guest-benefit-link,
+.admin-footnote > span {
+  color: var(--accent-dark);
+}
+
+.competition-edit:hover:not(:disabled),
+.competition-delete:hover:not(:disabled) {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: #fffaf3;
+}
+
+.status-pill,
+.role-tag,
+.admin-badge,
+.guest-saved-notice,
+.preview-notice,
+.fixture-generation-status,
+.fixture-leg-note {
+  border-color: #e2c7af;
+  background-color: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.status-pill::before,
+.guest-saved-notice::before {
+  background-color: var(--accent);
+}
+
+.admin-stat-icon {
+  background-color: transparent;
+  color: var(--accent);
+}
+
+.dashboard-alert,
+.form-success {
+  border-color: #e2c7af;
+  background-color: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.alert-error,
+.form-error,
+.fixture-leg-error {
+  border-color: #e3b8a5;
+  background-color: #f7e6dc;
+  color: #8f3518;
+}
+
+.invite-account-active,
+.invite-account-avatar,
+.invite-account-check {
+  border-color: #e2c7af;
+  background-color: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.mini-live i,
+.live-pulse,
+.score-dot,
+.preview-dot,
+.pitch-player,
+.player-one,
+.player-two,
+.player-three,
+.player-four,
+.player-five,
+.player-six,
+.crest-red {
+  background-color: var(--accent);
+}
+
+.crest-blue {
+  background-color: var(--ink);
+}
+
+.ticker-live i {
+  background-color: var(--accent);
+}
+
+.about-section .about-stat > span,
+.about-section .about-stat > strong,
+.site-footer a,
+.site-footer .footer-bottom,
+.site-footer .footer-main > div:first-child > p {
+  color: var(--cream);
+}
+
+.about-section .about-stat > strong,
+.site-footer .footer-bottom b,
+.site-footer .footer-links a:hover {
+  color: var(--accent);
+}
+
+.coming-footer .brand-mark {
+  background-color: var(--ink);
+  color: var(--cream);
+}
+
+.guest-saved-notice::before {
+  box-shadow: 0 0 0 3px #bd4f1f24;
+}
+
+.pitch {
+  border-color: #bd4f1f55;
+  background: repeating-linear-gradient(90deg, #bd4f1f14 0, #bd4f1f14 72px, #1716140a 72px, #1716140a 144px);
+}
+
+.pitch::before,
+.pitch::after,
+.pitch-half,
+.pitch-center,
+.pitch-box {
+  border-color: #17161438;
+}
+
+.my-table-row {
+  background: linear-gradient(90deg, #f3e1d2 0%, #fff8ed 100%) !important;
+  box-shadow: inset 4px 0 var(--accent);
+}
+
+.my-table-row td:first-child,
+.user-table-badge {
+  background-color: var(--accent);
+  color: #fffaf3 !important;
+}
