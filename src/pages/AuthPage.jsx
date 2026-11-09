@@ -10,6 +10,7 @@ export default function AuthPage({ mode }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteId = searchParams.get("invite");
+  const joinCode = searchParams.get("joinCode");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -34,8 +35,11 @@ export default function AuthPage({ mode }) {
       if (isSignup) {
         setNotice("Account created. You can now sign in.");
         toast.success("Account created. You can now sign in.");
-        if (inviteId) {
-          navigate(`/signin?invite=${encodeURIComponent(inviteId)}`);
+        if (inviteId || joinCode) {
+          const nextParams = new URLSearchParams();
+          if (inviteId) nextParams.set("invite", inviteId);
+          if (joinCode) nextParams.set("joinCode", joinCode);
+          navigate(`/signin?${nextParams.toString()}`);
         }
       } else {
         if (!response.data?.token) {
@@ -45,6 +49,8 @@ export default function AuthPage({ mode }) {
         setAuthSession(response.data.token, response.data.data);
         navigate(inviteId
           ? `/invite/${encodeURIComponent(inviteId)}`
+          : joinCode
+            ? `/competitions/invite/code?code=${encodeURIComponent(joinCode)}`
           : response.data.data?.role === "admin" ? "/admin" : "/dashboard");
       }
     } catch (requestError) {
@@ -68,7 +74,7 @@ export default function AuthPage({ mode }) {
           {notice && <div className="form-message form-success" role="status">{notice}</div>}
           <button className="button button-brown auth-submit" disabled={busy}>{busy ? "One sec..." : isSignup ? "Create your account" : "Sign in"} <Arrow /></button>
         </form>
-        <div className="auth-switch">{isSignup ? "Already got an account?" : "New to the squad?"} <Link to={`${isSignup ? "/signin" : "/signup"}${inviteId ? `?invite=${encodeURIComponent(inviteId)}` : ""}`}>{isSignup ? "Log in" : "Create an account"}</Link></div>
+        <div className="auth-switch">{isSignup ? "Already got an account?" : "New to the squad?"} <Link to={`${isSignup ? "/signin" : "/signup"}${inviteId || joinCode ? `?${new URLSearchParams({ ...(inviteId ? { invite: inviteId } : {}), ...(joinCode ? { joinCode } : {}) }).toString()}` : ""}`}>{isSignup ? "Log in" : "Create an account"}</Link></div>
         <p className="auth-terms">By continuing, you agree to keep it competitive and keep it friendly.</p>
       </div></section>
     </main>

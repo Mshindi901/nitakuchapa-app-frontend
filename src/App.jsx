@@ -4,6 +4,7 @@ import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import ParticipantDashboard from "./pages/ParticipantDashboard";
 import InvitePage from "./pages/InvitePage";
+import CodeInvitePage from "./pages/CodeInvitePage";
 import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
       <Route path="/signup" element={<AuthPage mode="signup" />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/participant" element={<ParticipantDashboard />} />
+      <Route path="/competitions/invite/code" element={<CodeInvitePage />} />
       <Route path="/invite/:shareId" element={<InvitePage />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="*" element={<Landing />} />
