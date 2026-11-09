@@ -1129,6 +1129,14 @@ select:focus-visible {
   background: radial-gradient(ellipse at 75% 48%, #eadcc8 0, transparent 53%);
 }
 
+.hero-section {
+  background-image:
+    linear-gradient(90deg, rgba(248, 246, 241, .92), rgba(248, 246, 241, .68)),
+    url("/background.png");
+  background-position: center;
+  background-size: cover;
+}
+
 .steps-section,
 .coming-steps,
 .auth-form-side,
